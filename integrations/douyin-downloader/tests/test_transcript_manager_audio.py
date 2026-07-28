@@ -516,11 +516,11 @@ async def test_call_openai_transcription_redacts_api_key_in_error_body(
     assert sentinel not in err_msg, f"raw api_key leaked into error_message: {err_msg!r}"
     # Masked form should be present so the user can still tell which
     # key was used.
-    assert "sk-L...CDEF" in err_msg
+    assert "TEST...CDEF" in err_msg
     # DB record matches.
     db_msg = db.transcript_jobs[-1]["error_message"]
     assert sentinel not in db_msg
-    assert "sk-L...CDEF" in db_msg
+    assert "TEST...CDEF" in db_msg
 
 
 # ---------------------------------------------------------------------------
