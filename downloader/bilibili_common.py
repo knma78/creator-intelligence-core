@@ -126,12 +126,12 @@ def humanize_bilibili_error(exc: Exception) -> str:
     if "412" in message or "Precondition Failed" in message:
         return (
             "B站拒绝了当前请求（HTTP 412）。通常是缺少登录 Cookie、请求太频繁，"
-            "或当前网络被风控。建议稍后重试；如果仍失败，请导出 B站 cookies.txt 后"
-            "配置 BILIBILI_COOKIE_FILE，再重启 Web UI。"
+            "或当前网络被风控。建议稍后重试；如果仍失败，请回到网页主界面"
+            "点击“重新登录B站”刷新本地会话。"
         )
     if "failed to load cookies" in message or "cookies database" in message:
         return (
-            "无法读取浏览器 Cookie。请清空 BILIBILI_COOKIES_FROM_BROWSER，"
-            "或导出 B站 cookies.txt 后配置 BILIBILI_COOKIE_FILE。"
+            "无法读取浏览器 Cookie。请回到网页主界面点击“重新登录B站”"
+            "刷新本地会话。"
         )
     return message

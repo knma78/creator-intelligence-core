@@ -103,6 +103,7 @@ class Settings:
     douyin_adapter_enabled: bool = _env_bool("DOUYIN_ADAPTER_ENABLED", True)
     douyin_adapter_timeout: int = int(os.getenv("DOUYIN_ADAPTER_TIMEOUT", "900"))
     douyin_auth_timeout: int = int(os.getenv("DOUYIN_AUTH_TIMEOUT", "600"))
+    platform_auth_timeout: int = int(os.getenv("PLATFORM_AUTH_TIMEOUT", "600"))
     xiaohongshu_cookie_file: str | None = os.getenv("XIAOHONGSHU_COOKIE_FILE")
     xiaohongshu_cookies_from_browser: str | None = os.getenv("XIAOHONGSHU_COOKIES_FROM_BROWSER")
     yt_dlp_cookie_file: str | None = os.getenv("YTDLP_COOKIE_FILE")

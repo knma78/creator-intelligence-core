@@ -26,6 +26,7 @@ from downloader.platform_auth import (
     ensure_platform_authorized,
     get_platform_auth_status,
     import_platform_cookies,
+    start_platform_login,
 )
 from downloader.social import detect_social_platform, is_douyin_profile_url
 from downloader.youtube import is_youtube_channel_url, is_youtube_url
@@ -291,6 +292,23 @@ def create_handler(state: AppState):
                     self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
                 except Exception as exc:
                     logger.exception("Failed to import platform cookies")
+                    self._send_json(
+                        {"error": str(exc)},
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                    )
+                return
+            if parsed.path == "/api/platform-auth/login":
+                try:
+                    payload = self._read_json()
+                    platform = str(payload.get("platform") or "").strip().lower()
+                    self._send_json(
+                        start_platform_login(platform, state.settings),
+                        HTTPStatus.ACCEPTED,
+                    )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                except Exception as exc:
+                    logger.exception("Failed to start platform login")
                     self._send_json(
                         {"error": str(exc)},
                         HTTPStatus.INTERNAL_SERVER_ERROR,

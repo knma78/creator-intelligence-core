@@ -71,8 +71,7 @@ class YoutubeChannelCrawler:
                 return stale_entries[:limit]
             raise RuntimeError(
                 "没有获取到 YouTube 频道视频列表。请确认频道公开且包含公开视频；"
-                "如果 YouTube 要求登录，请配置 YOUTUBE_COOKIE_FILE 或 "
-                "YOUTUBE_COOKIES_FROM_BROWSER。"
+                "如果 YouTube 要求登录，请回到网页主界面点击“登录YouTube”。"
             )
 
         payload = {
@@ -185,9 +184,8 @@ def _humanize_youtube_channel_error(exc: Exception) -> str:
         return message
     if any(term in lowered for term in ("sign in", "not a bot", "login", "cookies")):
         return (
-            "YouTube 要求登录或人机验证。请在 .env 配置 "
-            "YOUTUBE_COOKIES_FROM_BROWSER=chrome（读取前先关闭 Chrome），"
-            "或导出 cookies.txt 并配置 YOUTUBE_COOKIE_FILE。"
+            "YouTube 要求登录或人机验证。请回到网页主界面"
+            "点击“重新登录YouTube”刷新本地会话。"
         )
     if "unsupported url" in lowered:
         return "无法识别该 YouTube 频道主页，请使用频道的 @名称 或 /channel/ 链接。"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from config import Settings
 from downloader.bilibili_common import apply_yt_dlp_auth_options
@@ -12,7 +13,10 @@ from downloader.platform_auth import (
     import_platform_cookies,
     manual_cookie_path,
     resolve_authorized_cookie_file,
+    start_platform_login,
+    write_platform_auth_status,
 )
+from downloader.platform_login import serialize_netscape_cookies
 from downloader.yt_dlp_common import apply_yt_dlp_options
 from webapp.server import _required_auth_platform
 
@@ -77,6 +81,46 @@ class PlatformAuthTests(unittest.TestCase):
     def test_unauthorized_platform_is_blocked_before_download(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "Cookie 授权"):
             ensure_platform_authorized("youtube", self.settings)
+
+    def test_browser_login_cookie_serialization_is_yt_dlp_compatible(self) -> None:
+        content = serialize_netscape_cookies(
+            [
+                {
+                    "domain": ".bilibili.com",
+                    "path": "/",
+                    "name": "SESSDATA",
+                    "value": "browser-session",
+                    "secure": True,
+                    "httpOnly": True,
+                    "expires": 2147483647,
+                }
+            ]
+        )
+        self.assertIn("#HttpOnly_.bilibili.com", content)
+        status = import_platform_cookies("bilibili", content, self.settings)
+        self.assertTrue(status["ready"])
+
+    @patch("downloader.platform_auth.subprocess.Popen")
+    def test_start_platform_login_launches_background_worker(self, popen) -> None:
+        status = start_platform_login("youtube", self.settings)
+
+        self.assertEqual(status["state"], "running")
+        self.assertFalse(status["ready"])
+        command = popen.call_args.args[0]
+        self.assertIn("downloader.platform_login", command)
+        self.assertIn("youtube", command)
+
+    def test_platform_login_failure_is_exposed_by_status(self) -> None:
+        write_platform_auth_status(
+            "bilibili",
+            "failed",
+            "登录窗口已关闭。",
+            self.settings,
+            source="web_login",
+        )
+        status = get_platform_auth_status("bilibili", self.settings)
+        self.assertEqual(status["state"], "failed")
+        self.assertEqual(status["message"], "登录窗口已关闭。")
 
     def test_source_routing_requires_only_bilibili_and_youtube_auth(self) -> None:
         self.assertEqual(

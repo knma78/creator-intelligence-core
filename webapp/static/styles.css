@@ -1737,7 +1737,7 @@ input:focus {
 
 .platform-access {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 100px 118px;
+  grid-template-columns: minmax(260px, 1fr) 100px 132px;
   min-height: 42px;
   padding: 5px 10px;
 }

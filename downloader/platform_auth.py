@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from config import SETTINGS, Settings
+from config import SETTINGS, Settings, ensure_directories
 
 
 SUPPORTED_PLATFORMS = {"bilibili", "youtube"}
@@ -36,12 +40,21 @@ def manual_cookie_path(platform: str, settings: Settings = SETTINGS) -> Path:
     return platform_auth_dir(settings) / f"{platform}.cookies.txt"
 
 
+def platform_auth_status_path(
+    platform: str,
+    settings: Settings = SETTINGS,
+) -> Path:
+    platform = _normalize_platform(platform)
+    return platform_auth_dir(settings) / f"{platform}.auth_status.json"
+
+
 def get_platform_auth_status(
     platform: str,
     settings: Settings = SETTINGS,
 ) -> dict[str, Any]:
     platform = _normalize_platform(platform)
     label = PLATFORM_LABELS[platform]
+    runtime = _read_platform_auth_status(platform, settings)
 
     for path, source in _cookie_file_candidates(platform, settings):
         if not path.is_file():
@@ -54,11 +67,16 @@ def get_platform_auth_status(
                 "label": label,
                 "state": "ready",
                 "ready": True,
-                "source": source,
-                "message": f"{label} Cookie 已授权，可以开始分析。",
+                "source": runtime.get("source") or source,
+                "message": (
+                    f"{label}网页登录已授权，可以开始分析。"
+                    if runtime.get("source") == "web_login"
+                    else f"{label} Cookie 已授权，可以开始分析。"
+                ),
                 "cookie_file": str(path),
                 "cookie_count": len(cookies),
                 "missing": [],
+                "updated_at": runtime.get("updated_at"),
             }
         invalid_reason = reason
     browser_spec = _browser_cookie_spec(platform, settings)
@@ -73,11 +91,30 @@ def get_platform_auth_status(
             "cookie_file": None,
             "cookie_count": None,
             "missing": [],
+            "updated_at": runtime.get("updated_at"),
         }
 
-    message = f"{label}尚未授权，请导入该平台的 cookies.txt。"
+    runtime_state = str(runtime.get("state") or "")
+    if runtime_state in {"running", "failed"}:
+        return {
+            "platform": platform,
+            "label": label,
+            "state": runtime_state,
+            "ready": False,
+            "source": runtime.get("source"),
+            "message": str(
+                runtime.get("message")
+                or f"{label}网页登录尚未完成。"
+            ),
+            "cookie_file": str(manual_cookie_path(platform, settings)),
+            "cookie_count": 0,
+            "missing": sorted(LOGIN_COOKIE_NAMES[platform]),
+            "updated_at": runtime.get("updated_at"),
+        }
+
+    message = f"{label}尚未授权，请点击“登录{label}”完成一次网页登录。"
     if "invalid_reason" in locals():
-        message = f"{label} Cookie 无效：{invalid_reason}。请重新导入 cookies.txt。"
+        message = f"{label} Cookie 无效：{invalid_reason}。请重新登录{label}。"
     return {
         "platform": platform,
         "label": label,
@@ -88,6 +125,7 @@ def get_platform_auth_status(
         "cookie_file": str(manual_cookie_path(platform, settings)),
         "cookie_count": 0,
         "missing": sorted(LOGIN_COOKIE_NAMES[platform]),
+        "updated_at": runtime.get("updated_at"),
     }
 
 
@@ -119,7 +157,97 @@ def import_platform_cookies(
     temporary = target.with_suffix(".tmp")
     temporary.write_text(normalized, encoding="utf-8")
     os.replace(temporary, target)
+    write_platform_auth_status(
+        platform,
+        "ready",
+        f"{PLATFORM_LABELS[platform]} Cookie 导入完成。",
+        settings,
+        source="manual",
+        cookie_count=len(cookies),
+    )
     return get_platform_auth_status(platform, settings)
+
+
+def start_platform_login(
+    platform: str,
+    settings: Settings = SETTINGS,
+) -> dict[str, Any]:
+    platform = _normalize_platform(platform)
+    ensure_directories(settings)
+    status = get_platform_auth_status(platform, settings)
+    if status["state"] == "running":
+        return status
+
+    label = PLATFORM_LABELS[platform]
+    write_platform_auth_status(
+        platform,
+        "running",
+        f"登录窗口正在打开。请在窗口中登录{label}，完成后程序会自动保存本机会话。",
+        settings,
+        source="web_login",
+    )
+    log_path = settings.logs_dir / f"{platform}_auth.log"
+    command = [
+        sys.executable,
+        "-m",
+        "downloader.platform_login",
+        "--platform",
+        platform,
+        "--timeout",
+        str(max(60, settings.platform_auth_timeout)),
+    ]
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        with log_path.open("a", encoding="utf-8") as log_file:
+            subprocess.Popen(
+                command,
+                cwd=settings.base_dir,
+                env=env,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                creationflags=creationflags,
+            )
+    except Exception:
+        write_platform_auth_status(
+            platform,
+            "failed",
+            f"无法启动{label}登录窗口，请查看 logs/{platform}_auth.log。",
+            settings,
+            source="web_login",
+        )
+        raise
+    return get_platform_auth_status(platform, settings)
+
+
+def write_platform_auth_status(
+    platform: str,
+    state: str,
+    message: str,
+    settings: Settings = SETTINGS,
+    **extra: Any,
+) -> None:
+    platform = _normalize_platform(platform)
+    path = platform_auth_status_path(platform, settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(
+            {
+                "platform": platform,
+                "state": state,
+                "message": message,
+                "updated_at": datetime.now().isoformat(timespec="seconds"),
+                **extra,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
 
 
 def ensure_platform_authorized(
@@ -132,7 +260,7 @@ def ensure_platform_authorized(
     label = status["label"]
     raise RuntimeError(
         f"{label}任务需要先完成 Cookie 授权。请在网页主界面的“平台访问授权”中"
-        f"导入 {label} cookies.txt 后重新提交。"
+        f"点击“登录{label}”，完成网页登录后重新提交。"
     )
 
 
@@ -225,6 +353,34 @@ def _browser_cookie_spec(platform: str, settings: Settings) -> str | None:
 def _resolve_path(value: str, settings: Settings) -> Path:
     path = Path(value).expanduser()
     return path if path.is_absolute() else settings.base_dir / path
+
+
+def _read_platform_auth_status(
+    platform: str,
+    settings: Settings,
+) -> dict[str, Any]:
+    path = platform_auth_status_path(platform, settings)
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    if payload.get("state") == "running":
+        try:
+            updated_at = datetime.fromisoformat(str(payload.get("updated_at") or ""))
+            stale_after = max(120, settings.platform_auth_timeout + 60)
+            if (datetime.now() - updated_at).total_seconds() > stale_after:
+                return {
+                    **payload,
+                    "state": "failed",
+                    "message": "上一次登录任务已结束或超时，请重新点击登录。",
+                }
+        except ValueError:
+            pass
+    return payload
 
 
 def _normalize_platform(platform: str) -> str:

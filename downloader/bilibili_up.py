@@ -74,7 +74,7 @@ class BilibiliUPCrawler:
         if not videos:
             raise RuntimeError(
                 "Cannot fetch the UP video list. Bilibili may be rate-limiting the space API. "
-                "Try again later, or export Bilibili cookies.txt and set BILIBILI_COOKIE_FILE in .env."
+                "Try again later, or use the Web UI to sign in to Bilibili again."
             )
 
         payload = {"source": source, "limit": limit, "videos": videos}

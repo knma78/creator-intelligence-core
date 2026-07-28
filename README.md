@@ -32,11 +32,12 @@ python main.py "小红书视频笔记分享链接" --v3 --build-kb
 
 - 支持公开的抖音单视频、抖音创作者主页和小红书视频笔记。
 - 小红书纯图文笔记没有音视频流，不能进入 Whisper。
-- 抖音首次使用时，在本地网页点击“登录抖音”并完成一次网页登录；Cookie 仅保存在 `cache/douyin/cookies.json`。
+- B站、YouTube 和抖音首次使用时，均可在本地网页的“平台授权状态”中点击登录按钮；程序会打开独立浏览器窗口，并在登录成功后自动保存本机会话。
+- B站和 YouTube Cookie 保存在 `cache/platform_auth/`，抖音 Cookie 保存在 `cache/douyin/cookies.json`；这些目录不会提交到 Git。
 - 抖音下载由 `integrations/douyin-downloader` 隔离适配器完成，媒体获取后继续复用本项目的 Whisper、分析和知识库流程。
 - 小红书创作者主页批量抓取暂未接入；Discovery 候选人需要保存一个公开视频链接。
 - 小红书登录可见内容可配置 `XIAOHONGSHU_COOKIES_FROM_BROWSER` 或 `XIAOHONGSHU_COOKIE_FILE`。
-- 使用浏览器 Cookie 前应先关闭对应浏览器，避免 Cookie 数据库被占用。
+- `.env` 中的 Cookie 文件和浏览器读取配置仍可作为网页登录失败时的兼容回退。
 
 ## V2.0
 
@@ -291,7 +292,7 @@ pip install -r requirements.txt
 
 2. FFmpeg 可以通过系统 PATH、`.env` 里的 `FFMPEG_PATH`，或 `imageio-ffmpeg` 自动提供。
 
-3. 可选：复制 `.env.example` 为 `.env`，配置 Whisper、LLM 和各平台 Cookie。
+3. 可选：复制 `.env.example` 为 `.env`，配置 Whisper、LLM 和平台登录超时；Cookie 通常可直接通过 Web UI 登录获取。
 
 ```bash
 copy .env.example .env

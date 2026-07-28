@@ -8,6 +8,7 @@ from time import monotonic, sleep
 from typing import Any
 
 from config import SETTINGS, Settings, ensure_directories
+from downloader.browser_login import launch_login_context
 from downloader.douyin_adapter import REQUIRED_COOKIE_KEYS, douyin_cookie_path
 
 
@@ -32,7 +33,7 @@ def capture_douyin_login(
     deadline = monotonic() + max(60, timeout_seconds)
     try:
         with sync_playwright() as playwright:
-            context = _launch_context(playwright, profile_dir)
+            context = launch_login_context(playwright, profile_dir)
             page = context.pages[0] if context.pages else context.new_page()
             try:
                 page.goto(
@@ -85,30 +86,6 @@ def capture_douyin_login(
             f"无法完成抖音登录：{type(exc).__name__}。",
         )
         raise
-
-
-def _launch_context(playwright: Any, profile_dir: Path):
-    launch_options = {
-        "user_data_dir": str(profile_dir),
-        "headless": False,
-        "locale": "zh-CN",
-        "viewport": {"width": 1440, "height": 900},
-        "args": ["--disable-blink-features=AutomationControlled"],
-    }
-    try:
-        return playwright.chromium.launch_persistent_context(
-            channel="chrome",
-            **launch_options,
-        )
-    except Exception:
-        chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
-        if not chrome.is_file():
-            raise
-        return playwright.chromium.launch_persistent_context(
-            executable_path=str(chrome),
-            **launch_options,
-        )
-
 
 def _save_cookies(path: Path, cookies: dict[str, str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

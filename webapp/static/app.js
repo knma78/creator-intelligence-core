@@ -14,11 +14,9 @@ const douyinLoginButton = document.getElementById("douyinLoginButton");
 const bilibiliAccess = document.getElementById("bilibiliAccess");
 const bilibiliAccessMessage = document.getElementById("bilibiliAccessMessage");
 const bilibiliAuthButton = document.getElementById("bilibiliAuthButton");
-const bilibiliCookieInput = document.getElementById("bilibiliCookieInput");
 const youtubeAccess = document.getElementById("youtubeAccess");
 const youtubeAccessMessage = document.getElementById("youtubeAccessMessage");
 const youtubeAuthButton = document.getElementById("youtubeAuthButton");
-const youtubeCookieInput = document.getElementById("youtubeCookieInput");
 const refreshJobs = document.getElementById("refreshJobs");
 const jobBadge = document.getElementById("jobBadge");
 const progressBar = document.getElementById("progressBar");
@@ -85,6 +83,7 @@ const platformAuthState = {
   bilibili: null,
   youtube: null,
 };
+let platformAuthStatusTimer = null;
 
 const gapStatusLabels = {
   empty: "暂无数据",
@@ -144,7 +143,7 @@ jobForm.addEventListener("submit", async (event) => {
   const authPlatform = requiredAuthPlatform(source);
   if (authPlatform && !platformAuthState[authPlatform]?.ready) {
     const label = authPlatform === "bilibili" ? "B站" : "YouTube";
-    setLog(`${label}任务需要先导入该平台的 cookies.txt。`);
+    setLog(`${label}任务需要先完成一次网页登录。`);
     const button = authPlatform === "bilibili" ? bilibiliAuthButton : youtubeAuthButton;
     button.focus();
     return;
@@ -184,10 +183,8 @@ buildAdvancedKbButton.addEventListener("click", async () => {
 });
 
 douyinLoginButton.addEventListener("click", startDouyinLogin);
-bilibiliAuthButton.addEventListener("click", () => bilibiliCookieInput.click());
-youtubeAuthButton.addEventListener("click", () => youtubeCookieInput.click());
-bilibiliCookieInput.addEventListener("change", () => importPlatformCookie("bilibili"));
-youtubeCookieInput.addEventListener("change", () => importPlatformCookie("youtube"));
+bilibiliAuthButton.addEventListener("click", () => startPlatformLogin("bilibili"));
+youtubeAuthButton.addEventListener("click", () => startPlatformLogin("youtube"));
 
 knowledgeBuildButton.addEventListener("click", async () => {
   await startSystemJob("/api/kb/advanced", "完整知识系统任务创建失败。");
@@ -350,42 +347,36 @@ async function loadPlatformAuthStatuses() {
   }
 }
 
-async function importPlatformCookie(platform) {
-  const input = platform === "bilibili" ? bilibiliCookieInput : youtubeCookieInput;
-  const file = input.files?.[0];
-  if (!file) return;
+async function startPlatformLogin(platform) {
   const label = platform === "bilibili" ? "B站" : "YouTube";
   const button = platform === "bilibili" ? bilibiliAuthButton : youtubeAuthButton;
   button.disabled = true;
   renderPlatformAuthStatus(platform, {
     state: "running",
     ready: false,
-    message: `正在校验 ${label} Cookie`,
+    message: `正在打开${label}登录窗口`,
   });
   try {
-    if (file.size > 4 * 1024 * 1024) {
-      throw new Error("Cookie 文件不能超过 4MB");
-    }
-    const content = await file.text();
-    const response = await fetch("/api/platform-auth/import", {
+    const response = await fetch("/api/platform-auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ platform, content }),
+      body: JSON.stringify({ platform }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     renderPlatformAuthStatus(platform, payload);
-    setLog(`${label} Cookie 授权完成。`);
+    setLog(`请在打开的窗口中完成${label}登录。`);
   } catch (error) {
     renderPlatformAuthStatus(platform, {
       state: "failed",
       ready: false,
-      message: error.message || `${label} Cookie 导入失败`,
+      message: error.message || `无法启动${label}登录`,
     });
-    setLog(error.message || `${label} Cookie 导入失败。`);
+    setLog(error.message || `无法启动${label}登录。`);
   } finally {
-    input.value = "";
-    button.disabled = false;
+    if (platformAuthState[platform]?.state !== "running") {
+      button.disabled = false;
+    }
   }
 }
 
@@ -394,10 +385,21 @@ function renderPlatformAuthStatus(platform, payload) {
   const access = platform === "bilibili" ? bilibiliAccess : youtubeAccess;
   const message = platform === "bilibili" ? bilibiliAccessMessage : youtubeAccessMessage;
   const button = platform === "bilibili" ? bilibiliAuthButton : youtubeAuthButton;
-  access.dataset.state = payload.ready ? "ready" : (payload.state || "required");
-  message.textContent = payload.message || "尚未导入 Cookie";
+  const state = payload.ready ? "ready" : (payload.state || "required");
+  const label = platform === "bilibili" ? "B站" : "YouTube";
+  access.dataset.state = state;
+  message.textContent = payload.message || "首次使用前需要网页登录";
   button.querySelector("span:last-child").textContent =
-    payload.ready ? "重新授权" : "导入 Cookie";
+    payload.ready ? "重新登录" : (state === "running" ? "等待登录" : `登录${label}`);
+  button.disabled = state === "running";
+
+  if (platformAuthStatusTimer) {
+    clearTimeout(platformAuthStatusTimer);
+    platformAuthStatusTimer = null;
+  }
+  if (Object.values(platformAuthState).some((item) => item?.state === "running")) {
+    platformAuthStatusTimer = setTimeout(loadPlatformAuthStatuses, 2000);
+  }
 }
 
 function requiredAuthPlatform(source) {
