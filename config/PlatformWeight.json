@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22",
+  "platforms": {
+    "bilibili": {
+      "enabled": true,
+      "display_name": "Bilibili",
+      "weight": 1.0,
+      "languages": ["zh"],
+      "best_for": ["storytelling", "emotion", "hook", "rhythm", "explanation", "visual", "editing"],
+      "search_modes": ["keyword", "creator_name", "space_url"],
+      "supports_auto_fetch": true,
+      "auto_fetch_scope": "creator_and_video",
+      "supports_creator_batch": true
+    },
+    "douyin": {
+      "enabled": true,
+      "display_name": "Douyin",
+      "weight": 0.92,
+      "languages": ["zh"],
+      "best_for": ["hook", "retention", "visual", "camera", "editing", "cta", "humor"],
+      "search_modes": ["keyword", "creator_name", "video_url"],
+      "supports_auto_fetch": true,
+      "auto_fetch_scope": "single_video",
+      "supports_creator_batch": false
+    },
+    "youtube": {
+      "enabled": true,
+      "display_name": "YouTube",
+      "weight": 0.9,
+      "languages": ["en", "zh"],
+      "best_for": ["visual", "editing", "camera", "audio", "retention", "explanation"],
+      "search_modes": ["keyword", "channel_name", "channel_url", "video_url"],
+      "supports_auto_fetch": true,
+      "auto_fetch_scope": "creator_and_video",
+      "supports_creator_batch": true
+    },
+    "xiaohongshu": {
+      "enabled": true,
+      "display_name": "Xiaohongshu",
+      "weight": 0.78,
+      "languages": ["zh"],
+      "best_for": ["thumbnail", "title", "visual", "camera", "cta"],
+      "search_modes": ["keyword", "creator_name", "video_url"],
+      "supports_auto_fetch": true,
+      "auto_fetch_scope": "single_video",
+      "supports_creator_batch": false
+    }
+  },
+  "future_platforms": {
+    "tiktok": {"enabled": false},
+    "twitter_x": {"enabled": false},
+    "instagram": {"enabled": false}
+  }
+}

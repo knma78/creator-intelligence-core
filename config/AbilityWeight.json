@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-24",
+  "default_weight": 1.0,
+  "default_status": "active",
+  "abilities": {
+    "storytelling": {
+      "display_name": "故事叙事",
+      "weight": 1.2,
+      "aliases": ["story telling"]
+    },
+    "logic": {
+      "display_name": "逻辑叙事",
+      "weight": 1.2,
+      "aliases": ["logical narrative"]
+    },
+    "emotion": {
+      "display_name": "情绪叙事",
+      "weight": 1.25,
+      "aliases": ["emotional narrative", "emotion narrative"]
+    },
+    "character": {
+      "display_name": "人物塑造",
+      "weight": 1.05,
+      "aliases": ["character design"]
+    },
+    "world_building": {
+      "display_name": "世界观构建",
+      "weight": 1.05,
+      "aliases": ["world building", "worldbuilding"]
+    },
+    "narrative": {
+      "display_name": "叙事表达",
+      "weight": 1.15,
+      "aliases": ["narration", "anime narrative", "science narrative", "historical narrative", "plot analysis"]
+    },
+    "explanation": {
+      "display_name": "复杂概念解释",
+      "weight": 1.15,
+      "aliases": ["teaching", "science explanation", "business explanation", "explainer"]
+    },
+    "hook": {
+      "display_name": "开场钩子",
+      "weight": 1.25,
+      "aliases": []
+    },
+    "rhythm": {
+      "display_name": "节奏控制",
+      "weight": 1.2,
+      "aliases": []
+    },
+    "humor": {
+      "display_name": "幽默表达",
+      "weight": 0.9,
+      "aliases": ["comedy"]
+    },
+    "transition": {
+      "display_name": "转场设计",
+      "weight": 1.05,
+      "aliases": ["transitions"]
+    },
+    "ending": {
+      "display_name": "结尾设计",
+      "weight": 1.05,
+      "aliases": ["closure"]
+    },
+    "visual": {
+      "display_name": "视觉表达",
+      "weight": 1.15,
+      "aliases": ["visualization", "visual production", "visual teaching", "cover visual"]
+    },
+    "editing": {
+      "display_name": "剪辑设计",
+      "weight": 1.0,
+      "aliases": ["edit", "post production"]
+    },
+    "camera": {
+      "display_name": "镜头语言",
+      "weight": 0.95,
+      "aliases": ["cinematography", "shot"]
+    },
+    "audio": {
+      "display_name": "声音设计",
+      "weight": 0.95,
+      "aliases": ["sound", "voice", "music"]
+    },
+    "title": {
+      "display_name": "标题设计",
+      "weight": 1.15,
+      "aliases": ["title design", "headline"]
+    },
+    "thumbnail": {
+      "display_name": "封面设计",
+      "weight": 1.1,
+      "aliases": ["cover", "cover ocr", "cover design"]
+    },
+    "audience_psychology": {
+      "display_name": "观众心理",
+      "weight": 1.2,
+      "aliases": ["audience", "viewer psychology"]
+    },
+    "retention": {
+      "display_name": "观看留存",
+      "weight": 1.2,
+      "aliases": ["watch retention", "view retention"]
+    },
+    "cta": {
+      "display_name": "行动引导",
+      "weight": 0.85,
+      "aliases": ["call to action"]
+    },
+    "knowledge_density": {
+      "display_name": "知识密度",
+      "weight": 1.1,
+      "aliases": ["information density", "teaching density"]
+    },
+    "information_gap": {
+      "display_name": "信息差",
+      "weight": 1.15,
+      "aliases": ["curiosity gap", "gap"]
+    },
+    "conflict": {
+      "display_name": "冲突设计",
+      "weight": 1.1,
+      "aliases": ["contradiction", "contrast"]
+    },
+    "suspense": {
+      "display_name": "悬念设计",
+      "weight": 1.05,
+      "aliases": ["tension"]
+    },
+    "question_design": {
+      "display_name": "问题设计",
+      "weight": 1.05,
+      "aliases": ["question", "question task"]
+    },
+    "value_delivery": {
+      "display_name": "价值传递",
+      "weight": 1.1,
+      "aliases": ["viewer value", "takeaway"]
+    }
+  },
+  "evolution": {
+    "history_enabled": true,
+    "merge_rules": [],
+    "split_rules": [],
+    "deleted_abilities": [],
+    "renamed_abilities": {
+      "visualization": "visual",
+      "world building": "world_building",
+      "narration": "narrative",
+      "teaching": "explanation"
+    }
+  }
+}

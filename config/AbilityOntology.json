@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "ontology_version": "1.0.0",
+  "status": "active",
+  "abilities": {
+    "storytelling": {
+      "ability_id": "ability.storytelling",
+      "ability_name": "故事叙事",
+      "definition": "将事实、人物和事件组织成具有目标、阻力、推进和结果的故事。",
+      "evaluation_rules": [
+        {"rule_key": "story_arc", "rule_text": "是否形成完整或可识别的故事推进", "weight": 0.5},
+        {"rule_key": "causal_events", "rule_text": "事件之间是否存在清晰的因果联系", "weight": 0.5}
+      ]
+    },
+    "logic": {
+      "ability_id": "ability.logic",
+      "ability_name": "逻辑叙事",
+      "definition": "用因果、分类、对比和阶段结论组织复杂信息。",
+      "evaluation_rules": [
+        {"rule_key": "causal_chain", "rule_text": "核心结论是否有连续的因果链支撑", "weight": 0.55},
+        {"rule_key": "argument_consistency", "rule_text": "论点与证据是否一致且无明显跳跃", "weight": 0.45}
+      ]
+    },
+    "emotion": {
+      "ability_id": "ability.emotion",
+      "ability_name": "情绪表达",
+      "definition": "设计观众的情绪进入、递进、峰值和回收。",
+      "evaluation_rules": [
+        {"rule_key": "emotion_curve", "rule_text": "内容是否形成可识别的情绪变化曲线", "weight": 0.55},
+        {"rule_key": "emotion_evidence", "rule_text": "情绪是否由人物、事件或视听证据支撑", "weight": 0.45}
+      ]
+    },
+    "character": {
+      "ability_id": "ability.character",
+      "ability_name": "人物塑造",
+      "definition": "通过目标、动机、选择、关系和变化建立可信人物。",
+      "evaluation_rules": [
+        {"rule_key": "motivation", "rule_text": "人物是否具有明确且可理解的动机", "weight": 0.5},
+        {"rule_key": "character_change", "rule_text": "人物是否通过选择或事件产生变化", "weight": 0.5}
+      ]
+    },
+    "world_building": {
+      "ability_id": "ability.world_building",
+      "ability_name": "世界观构建",
+      "definition": "建立故事或知识主题所依赖的时代、规则、环境和关系网络。",
+      "evaluation_rules": [
+        {"rule_key": "world_rules", "rule_text": "背景规则是否清晰且前后一致", "weight": 0.5},
+        {"rule_key": "context_relevance", "rule_text": "背景信息是否服务于主题和人物行动", "weight": 0.5}
+      ]
+    },
+    "narrative": {
+      "ability_id": "ability.narrative",
+      "ability_name": "叙事表达",
+      "definition": "选择合适视角、顺序和语言呈现事件与信息。",
+      "evaluation_rules": [
+        {"rule_key": "narrative_order", "rule_text": "叙事顺序是否清楚并服务于理解", "weight": 0.5},
+        {"rule_key": "point_of_view", "rule_text": "叙事视角是否稳定且与主题匹配", "weight": 0.5}
+      ]
+    },
+    "explanation": {
+      "ability_id": "ability.explanation",
+      "ability_name": "复杂概念解释",
+      "definition": "把陌生或复杂概念拆解为可理解的步骤、例子和结论。",
+      "evaluation_rules": [
+        {"rule_key": "concept_decomposition", "rule_text": "复杂概念是否被拆成可理解的组成部分", "weight": 0.55},
+        {"rule_key": "example_support", "rule_text": "是否使用有效例子或类比降低理解成本", "weight": 0.45}
+      ]
+    },
+    "hook": {
+      "ability_id": "ability.hook",
+      "ability_name": "开场钩子",
+      "definition": "在开场快速建立主题、价值预期或继续观看的理由。",
+      "evaluation_rules": [
+        {"rule_key": "early_promise", "rule_text": "开场是否快速给出明确观看承诺", "weight": 0.5},
+        {"rule_key": "attention_trigger", "rule_text": "是否存在问题、反差或结果预告等注意力触发点", "weight": 0.5}
+      ]
+    },
+    "rhythm": {
+      "ability_id": "ability.rhythm",
+      "ability_name": "节奏控制",
+      "definition": "管理信息、情绪和场景在时间上的密度、变化与停顿。",
+      "evaluation_rules": [
+        {"rule_key": "pace_variation", "rule_text": "内容推进速度是否存在有目的的变化", "weight": 0.5},
+        {"rule_key": "segment_duration", "rule_text": "各部分时长是否与其内容价值相匹配", "weight": 0.5}
+      ]
+    },
+    "humor": {
+      "ability_id": "ability.humor",
+      "ability_name": "幽默表达",
+      "definition": "通过反差、语境、节奏或观点制造与主题一致的幽默效果。",
+      "evaluation_rules": [
+        {"rule_key": "humor_mechanism", "rule_text": "幽默是否具有可识别的反差或语境机制", "weight": 0.55},
+        {"rule_key": "topic_alignment", "rule_text": "幽默是否服务于主题而非打断理解", "weight": 0.45}
+      ]
+    },
+    "transition": {
+      "ability_id": "ability.transition",
+      "ability_name": "转场设计",
+      "definition": "在段落、观点或场景之间建立清晰自然的连接。",
+      "evaluation_rules": [
+        {"rule_key": "semantic_bridge", "rule_text": "前后内容是否存在明确的语义连接", "weight": 0.55},
+        {"rule_key": "transition_variety", "rule_text": "转场方式是否与内容变化相匹配", "weight": 0.45}
+      ]
+    },
+    "ending": {
+      "ability_id": "ability.ending",
+      "ability_name": "结尾设计",
+      "definition": "在结尾完成主题回收、价值确认或后续行动连接。",
+      "evaluation_rules": [
+        {"rule_key": "promise_closure", "rule_text": "结尾是否回应开场承诺或核心问题", "weight": 0.55},
+        {"rule_key": "takeaway", "rule_text": "观众是否能获得明确结论或记忆点", "weight": 0.45}
+      ]
+    },
+    "visual": {
+      "ability_id": "ability.visual",
+      "ability_name": "视觉表达",
+      "definition": "使用画面、图形、文字和视觉层级支持信息理解与情绪传达。",
+      "evaluation_rules": [
+        {"rule_key": "visual_relevance", "rule_text": "视觉内容是否直接支持当前表达", "weight": 0.55},
+        {"rule_key": "visual_hierarchy", "rule_text": "画面信息是否具有清晰层级", "weight": 0.45}
+      ]
+    },
+    "editing": {
+      "ability_id": "ability.editing",
+      "ability_name": "剪辑设计",
+      "definition": "通过镜头选择、时序、删减和组合形成连贯有效的成片。",
+      "evaluation_rules": [
+        {"rule_key": "edit_intent", "rule_text": "剪辑点是否服务于信息或情绪变化", "weight": 0.5},
+        {"rule_key": "continuity", "rule_text": "镜头和声音连接是否保持理解连续性", "weight": 0.5}
+      ]
+    },
+    "camera": {
+      "ability_id": "ability.camera",
+      "ability_name": "镜头语言",
+      "definition": "通过景别、构图、角度和运动表达信息、关系与情绪。",
+      "evaluation_rules": [
+        {"rule_key": "shot_purpose", "rule_text": "镜头选择是否具有明确表达目的", "weight": 0.55},
+        {"rule_key": "composition", "rule_text": "构图与运动是否引导观众关注核心信息", "weight": 0.45}
+      ]
+    },
+    "audio": {
+      "ability_id": "ability.audio",
+      "ability_name": "声音设计",
+      "definition": "使用人声、音乐、环境声和音效建立清晰度、节奏和情绪。",
+      "evaluation_rules": [
+        {"rule_key": "voice_clarity", "rule_text": "核心人声是否清晰且层级稳定", "weight": 0.5},
+        {"rule_key": "sound_function", "rule_text": "音乐和音效是否服务于内容变化", "weight": 0.5}
+      ]
+    },
+    "title": {
+      "ability_id": "ability.title",
+      "ability_name": "标题设计",
+      "definition": "用准确、具体且具有吸引力的表达建立内容预期。",
+      "evaluation_rules": [
+        {"rule_key": "title_accuracy", "rule_text": "标题是否准确对应内容价值", "weight": 0.55},
+        {"rule_key": "title_interest", "rule_text": "标题是否提供具体结果、问题或反差", "weight": 0.45}
+      ]
+    },
+    "thumbnail": {
+      "ability_id": "ability.thumbnail",
+      "ability_name": "封面设计",
+      "definition": "通过主体、文字、构图和对比快速传达视频主题与点击理由。",
+      "evaluation_rules": [
+        {"rule_key": "thumbnail_focus", "rule_text": "封面是否存在清晰且唯一的视觉重点", "weight": 0.5},
+        {"rule_key": "title_complement", "rule_text": "封面是否与标题互补而非简单重复", "weight": 0.5}
+      ]
+    },
+    "audience_psychology": {
+      "ability_id": "ability.audience_psychology",
+      "ability_name": "观众心理",
+      "definition": "识别并回应目标观众的动机、疑问、预期和认知负担。",
+      "evaluation_rules": [
+        {"rule_key": "audience_need", "rule_text": "内容是否回应明确的观众需求", "weight": 0.55},
+        {"rule_key": "cognitive_load", "rule_text": "信息复杂度是否与目标观众匹配", "weight": 0.45}
+      ]
+    },
+    "retention": {
+      "ability_id": "ability.retention",
+      "ability_name": "观看留存",
+      "definition": "持续提供新的价值、问题或变化，降低观众中途退出的动机。",
+      "evaluation_rules": [
+        {"rule_key": "renewed_interest", "rule_text": "内容是否持续更新观看理由", "weight": 0.55},
+        {"rule_key": "drop_risk", "rule_text": "是否控制重复、空白和无效铺垫", "weight": 0.45}
+      ]
+    },
+    "cta": {
+      "ability_id": "ability.cta",
+      "ability_name": "行动引导",
+      "definition": "在合适位置引导观众执行与内容价值一致的后续行动。",
+      "evaluation_rules": [
+        {"rule_key": "cta_relevance", "rule_text": "行动要求是否与当前内容价值相关", "weight": 0.55},
+        {"rule_key": "cta_clarity", "rule_text": "行动对象和方式是否明确", "weight": 0.45}
+      ]
+    },
+    "knowledge_density": {
+      "ability_id": "ability.knowledge_density",
+      "ability_name": "知识密度",
+      "definition": "在可理解的前提下提供足够的新信息、证据和可迁移结论。",
+      "evaluation_rules": [
+        {"rule_key": "new_information", "rule_text": "单位内容是否提供有效的新信息", "weight": 0.55},
+        {"rule_key": "density_balance", "rule_text": "信息密度是否保持可理解性", "weight": 0.45}
+      ]
+    },
+    "information_gap": {
+      "ability_id": "ability.information_gap",
+      "ability_name": "信息差",
+      "definition": "通过已知与未知之间的差距建立好奇心并持续兑现答案。",
+      "evaluation_rules": [
+        {"rule_key": "open_question", "rule_text": "是否建立观众希望获得答案的问题", "weight": 0.5},
+        {"rule_key": "gap_payoff", "rule_text": "信息差是否在后续得到有效兑现", "weight": 0.5}
+      ]
+    },
+    "information_progression": {
+      "ability_id": "ability.information_progression",
+      "ability_name": "信息递进",
+      "parent_ability_id": "ability.narrative",
+      "definition": "按照理解和兴趣需要逐层增加信息，使前一层成为后一层的基础。",
+      "evaluation_rules": [
+        {"rule_key": "progressive_layers", "rule_text": "信息是否从基础事实逐步进入关键结论", "weight": 0.55},
+        {"rule_key": "incremental_payoff", "rule_text": "每一阶段是否提供新的理解或观看收益", "weight": 0.45}
+      ]
+    },
+    "conflict": {
+      "ability_id": "ability.conflict",
+      "ability_name": "冲突设计",
+      "definition": "通过目标、矛盾和阻力制造观看驱动力。",
+      "evaluation_rules": [
+        {"rule_key": "explicit_goal", "rule_text": "是否存在明确目标", "weight": 0.34},
+        {"rule_key": "core_contradiction", "rule_text": "是否存在核心矛盾", "weight": 0.33},
+        {"rule_key": "meaningful_stakes", "rule_text": "是否形成具有后果的利益或价值冲突", "weight": 0.33}
+      ]
+    },
+    "suspense": {
+      "ability_id": "ability.suspense",
+      "ability_name": "悬念设计",
+      "definition": "控制答案、结果或风险的揭示顺序，维持对后续内容的期待。",
+      "evaluation_rules": [
+        {"rule_key": "uncertain_outcome", "rule_text": "是否存在重要且不确定的结果", "weight": 0.5},
+        {"rule_key": "delayed_reveal", "rule_text": "信息延迟是否合理并最终兑现", "weight": 0.5}
+      ]
+    },
+    "question_design": {
+      "ability_id": "ability.question_design",
+      "ability_name": "问题设计",
+      "definition": "提出具体、有价值且能够驱动内容展开的问题。",
+      "evaluation_rules": [
+        {"rule_key": "question_value", "rule_text": "问题是否对应观众关心的价值", "weight": 0.55},
+        {"rule_key": "question_answerability", "rule_text": "问题是否能由后续内容明确回答", "weight": 0.45}
+      ]
+    },
+    "value_delivery": {
+      "ability_id": "ability.value_delivery",
+      "ability_name": "价值传递",
+      "definition": "向观众交付与标题和开场承诺一致的知识、体验或结果。",
+      "evaluation_rules": [
+        {"rule_key": "promise_match", "rule_text": "实际内容是否兑现标题和开场承诺", "weight": 0.55},
+        {"rule_key": "usable_takeaway", "rule_text": "观众是否获得明确且可复述的收获", "weight": 0.45}
+      ]
+    }
+  },
+  "term_mappings": [
+    {"taxonomy_type": "creator_style", "term_name": "Storytelling", "targets": [{"ability_key": "storytelling", "weight": 1.0}, {"ability_key": "conflict", "weight": 0.55}, {"ability_key": "information_progression", "weight": 0.65}]},
+    {"taxonomy_type": "creator_style", "term_name": "Historical Narrative", "targets": [{"ability_key": "narrative", "weight": 1.0}, {"ability_key": "storytelling", "weight": 0.9}, {"ability_key": "logic", "weight": 0.6}, {"ability_key": "conflict", "weight": 0.45}]},
+    {"taxonomy_type": "creator_style", "term_name": "历史叙事", "targets": [{"ability_key": "narrative", "weight": 1.0}, {"ability_key": "storytelling", "weight": 0.9}, {"ability_key": "logic", "weight": 0.6}, {"ability_key": "conflict", "weight": 0.45}]},
+    {"taxonomy_type": "creator_style", "term_name": "人物故事", "targets": [{"ability_key": "character", "weight": 1.0}, {"ability_key": "storytelling", "weight": 0.9}, {"ability_key": "emotion", "weight": 0.75}, {"ability_key": "conflict", "weight": 0.55}]},
+    {"taxonomy_type": "creator_style", "term_name": "Character", "targets": [{"ability_key": "character", "weight": 1.0}, {"ability_key": "emotion", "weight": 0.65}, {"ability_key": "conflict", "weight": 0.55}]},
+    {"taxonomy_type": "creator_style", "term_name": "人物塑造", "targets": [{"ability_key": "character", "weight": 1.0}, {"ability_key": "emotion", "weight": 0.65}, {"ability_key": "conflict", "weight": 0.55}]},
+    {"taxonomy_type": "creator_style", "term_name": "Black Humor", "targets": [{"ability_key": "humor", "weight": 1.0}, {"ability_key": "emotion", "weight": 0.5}, {"ability_key": "rhythm", "weight": 0.4}]},
+    {"taxonomy_type": "creator_style", "term_name": "黑色幽默", "targets": [{"ability_key": "humor", "weight": 1.0}, {"ability_key": "emotion", "weight": 0.5}, {"ability_key": "rhythm", "weight": 0.4}]},
+    {"taxonomy_type": "creator_style", "term_name": "Humor", "targets": [{"ability_key": "humor", "weight": 1.0}, {"ability_key": "rhythm", "weight": 0.45}]},
+    {"taxonomy_type": "creator_style", "term_name": "Logic", "targets": [{"ability_key": "logic", "weight": 1.0}, {"ability_key": "information_progression", "weight": 0.75}]},
+    {"taxonomy_type": "creator_style", "term_name": "Emotion", "targets": [{"ability_key": "emotion", "weight": 1.0}, {"ability_key": "character", "weight": 0.45}]},
+    {"taxonomy_type": "creator_style", "term_name": "Explanation", "targets": [{"ability_key": "explanation", "weight": 1.0}, {"ability_key": "knowledge_density", "weight": 0.75}, {"ability_key": "information_progression", "weight": 0.65}]},
+    {"taxonomy_type": "creator_style", "term_name": "Teaching", "targets": [{"ability_key": "explanation", "weight": 1.0}, {"ability_key": "knowledge_density", "weight": 0.8}]},
+    {"taxonomy_type": "creator_style", "term_name": "Visualization", "targets": [{"ability_key": "visual", "weight": 1.0}, {"ability_key": "explanation", "weight": 0.45}]},
+    {"taxonomy_type": "creator_style", "term_name": "Cinematography", "targets": [{"ability_key": "camera", "weight": 1.0}, {"ability_key": "visual", "weight": 0.7}]},
+    {"taxonomy_type": "creator_style", "term_name": "Editing", "targets": [{"ability_key": "editing", "weight": 1.0}, {"ability_key": "rhythm", "weight": 0.6}, {"ability_key": "transition", "weight": 0.5}]},
+    {"taxonomy_type": "creator_style", "term_name": "Audio", "targets": [{"ability_key": "audio", "weight": 1.0}, {"ability_key": "emotion", "weight": 0.4}]},
+    {"taxonomy_type": "creator_style", "term_name": "Hook", "targets": [{"ability_key": "hook", "weight": 1.0}, {"ability_key": "information_gap", "weight": 0.7}]},
+    {"taxonomy_type": "creator_style", "term_name": "Suspense", "targets": [{"ability_key": "suspense", "weight": 1.0}, {"ability_key": "information_gap", "weight": 0.65}, {"ability_key": "conflict", "weight": 0.45}]},
+
+    {"taxonomy_type": "video_metric", "term_name": "hook_score", "targets": [{"ability_key": "hook", "weight": 1.0, "confidence": 0.9}]},
+    {"taxonomy_type": "video_metric", "term_name": "hook_style", "targets": [{"ability_key": "hook", "weight": 0.8}, {"ability_key": "information_gap", "weight": 0.45}]},
+    {"taxonomy_type": "video_metric", "term_name": "rhythm_peak", "targets": [{"ability_key": "rhythm", "weight": 0.75}]},
+    {"taxonomy_type": "video_metric", "term_name": "rhythm_change", "targets": [{"ability_key": "rhythm", "weight": 0.8}, {"ability_key": "information_progression", "weight": 0.4}]},
+    {"taxonomy_type": "video_metric", "term_name": "transitions", "targets": [{"ability_key": "transition", "weight": 0.8}]},
+    {"taxonomy_type": "video_metric", "term_name": "emotion", "targets": [{"ability_key": "emotion", "weight": 0.75}]},
+    {"taxonomy_type": "video_metric", "term_name": "keyword_counts", "targets": [{"ability_key": "knowledge_density", "weight": 0.55}]},
+    {"taxonomy_type": "video_metric", "term_name": "title_patterns", "targets": [{"ability_key": "title", "weight": 0.6}, {"ability_key": "question_design", "weight": 0.45}, {"ability_key": "information_gap", "weight": 0.35}]},
+    {"taxonomy_type": "video_metric", "term_name": "cover_ocr", "targets": [{"ability_key": "thumbnail", "weight": 0.45}]},
+    {"taxonomy_type": "video_metric", "term_name": "cover_dominant_colors", "targets": [{"ability_key": "visual", "weight": 0.35}, {"ability_key": "thumbnail", "weight": 0.3}]},
+    {"taxonomy_type": "video_metric", "term_name": "learnings", "targets": [{"ability_key": "value_delivery", "weight": 0.65}]},
+    {"taxonomy_type": "video_metric", "term_name": "summary", "targets": [{"ability_key": "value_delivery", "weight": 0.35}, {"ability_key": "logic", "weight": 0.3}]},
+    {"taxonomy_type": "video_metric", "term_name": "comments_sentiment", "targets": [{"ability_key": "audience_psychology", "weight": 0.4}]},
+
+    {"taxonomy_type": "reviewer_dimension", "term_name": "冲突设计", "targets": [{"ability_key": "conflict", "weight": 1.0, "confidence": 1.0}]},
+    {"taxonomy_type": "reviewer_dimension", "term_name": "信息递进", "targets": [{"ability_key": "information_progression", "weight": 1.0, "confidence": 1.0}]},
+    {"taxonomy_type": "reviewer_dimension", "term_name": "情绪表达", "targets": [{"ability_key": "emotion", "weight": 1.0, "confidence": 1.0}]},
+    {"taxonomy_type": "reviewer_dimension", "term_name": "悬念设计", "targets": [{"ability_key": "suspense", "weight": 1.0, "confidence": 1.0}]},
+    {"taxonomy_type": "reviewer_dimension", "term_name": "信息密度", "targets": [{"ability_key": "knowledge_density", "weight": 1.0, "confidence": 1.0}]}
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22",
+  "default_language": "zh",
+  "abilities": {
+    "emotion": [
+      {"keyword": "人物塑造", "weight": 0.98, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "情绪表达", "weight": 0.95, "platform": "all", "language": "zh", "priority": 2},
+      {"keyword": "剧情解析", "weight": 0.92, "platform": "bilibili", "language": "zh", "priority": 3},
+      {"keyword": "角色成长", "weight": 0.9, "platform": "all", "language": "zh", "priority": 4},
+      {"keyword": "催泪剧情", "weight": 0.86, "platform": "bilibili", "language": "zh", "priority": 5},
+      {"keyword": "电影解说", "weight": 0.84, "platform": "bilibili", "language": "zh", "priority": 6},
+      {"keyword": "纪录片", "weight": 0.82, "platform": "all", "language": "zh", "priority": 7}
+    ],
+    "visual": [
+      {"keyword": "镜头语言", "weight": 0.96, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "构图", "weight": 0.92, "platform": "all", "language": "zh", "priority": 2},
+      {"keyword": "剪辑", "weight": 0.9, "platform": "all", "language": "zh", "priority": 3},
+      {"keyword": "运镜", "weight": 0.88, "platform": "douyin", "language": "zh", "priority": 4},
+      {"keyword": "光影", "weight": 0.86, "platform": "xiaohongshu", "language": "zh", "priority": 5}
+    ],
+    "hook": [
+      {"keyword": "黄金三秒", "weight": 0.96, "platform": "douyin", "language": "zh", "priority": 1},
+      {"keyword": "开头设计", "weight": 0.92, "platform": "all", "language": "zh", "priority": 2},
+      {"keyword": "悬念", "weight": 0.9, "platform": "all", "language": "zh", "priority": 3},
+      {"keyword": "爆款开头", "weight": 0.88, "platform": "bilibili", "language": "zh", "priority": 4}
+    ],
+    "retention": [
+      {"keyword": "完播率", "weight": 0.98, "platform": "douyin", "language": "zh", "priority": 1},
+      {"keyword": "留存曲线", "weight": 0.94, "platform": "youtube", "language": "zh", "priority": 2},
+      {"keyword": "内容留存", "weight": 0.92, "platform": "all", "language": "zh", "priority": 3},
+      {"keyword": "节奏钩子", "weight": 0.88, "platform": "bilibili", "language": "zh", "priority": 4},
+      {"keyword": "watch retention", "weight": 0.86, "platform": "youtube", "language": "en", "priority": 5}
+    ],
+    "conflict": [
+      {"keyword": "冲突设计", "weight": 0.96, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "反差叙事", "weight": 0.92, "platform": "bilibili", "language": "zh", "priority": 2},
+      {"keyword": "矛盾推进", "weight": 0.9, "platform": "all", "language": "zh", "priority": 3},
+      {"keyword": "戏剧冲突", "weight": 0.86, "platform": "bilibili", "language": "zh", "priority": 4}
+    ],
+    "suspense": [
+      {"keyword": "悬念设计", "weight": 0.96, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "信息差", "weight": 0.94, "platform": "all", "language": "zh", "priority": 2},
+      {"keyword": "悬疑解说", "weight": 0.88, "platform": "bilibili", "language": "zh", "priority": 3},
+      {"keyword": "story suspense", "weight": 0.84, "platform": "youtube", "language": "en", "priority": 4}
+    ],
+    "editing": [
+      {"keyword": "剪辑教学", "weight": 0.96, "platform": "bilibili", "language": "zh", "priority": 1},
+      {"keyword": "转场剪辑", "weight": 0.92, "platform": "douyin", "language": "zh", "priority": 2},
+      {"keyword": "视频剪辑思路", "weight": 0.9, "platform": "all", "language": "zh", "priority": 3},
+      {"keyword": "video editing", "weight": 0.88, "platform": "youtube", "language": "en", "priority": 4}
+    ],
+    "audio": [
+      {"keyword": "声音设计", "weight": 0.96, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "配音技巧", "weight": 0.92, "platform": "bilibili", "language": "zh", "priority": 2},
+      {"keyword": "音效设计", "weight": 0.9, "platform": "youtube", "language": "zh", "priority": 3},
+      {"keyword": "sound design", "weight": 0.88, "platform": "youtube", "language": "en", "priority": 4}
+    ],
+    "camera": [
+      {"keyword": "运镜技巧", "weight": 0.96, "platform": "douyin", "language": "zh", "priority": 1},
+      {"keyword": "拍摄构图", "weight": 0.92, "platform": "xiaohongshu", "language": "zh", "priority": 2},
+      {"keyword": "镜头运动", "weight": 0.9, "platform": "all", "language": "zh", "priority": 3},
+      {"keyword": "cinematography", "weight": 0.88, "platform": "youtube", "language": "en", "priority": 4}
+    ],
+    "humor": [
+      {"keyword": "幽默表达", "weight": 0.94, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "段子结构", "weight": 0.9, "platform": "douyin", "language": "zh", "priority": 2},
+      {"keyword": "喜剧节奏", "weight": 0.88, "platform": "bilibili", "language": "zh", "priority": 3}
+    ],
+    "cta": [
+      {"keyword": "评论引导", "weight": 0.92, "platform": "all", "language": "zh", "priority": 1},
+      {"keyword": "关注转化", "weight": 0.9, "platform": "douyin", "language": "zh", "priority": 2},
+      {"keyword": "call to action", "weight": 0.86, "platform": "youtube", "language": "en", "priority": 3}
+    ]
+  }
+}

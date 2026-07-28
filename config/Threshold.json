@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22",
+  "ability_defaults": {
+    "target_score": 70,
+    "target_coverage": 0.7,
+    "target_reference_count": 20,
+    "target_creator_count": 3,
+    "target_template_count": 2,
+    "min_learning_reference_count": 1,
+    "mature_score": 80,
+    "mature_coverage": 0.8
+  },
+  "health": {
+    "excellent": 85,
+    "healthy": 70,
+    "watch": 55
+  },
+  "planning": {
+    "min_recommended_videos": 5,
+    "max_recommended_videos": 30,
+    "default_video_batch": 10,
+    "target_gap_ratio": 0.75
+  },
+  "abilities": {
+    "storytelling": {},
+    "logic": {},
+    "emotion": {},
+    "character": {},
+    "world_building": {},
+    "narrative": {},
+    "explanation": {},
+    "hook": {},
+    "rhythm": {},
+    "humor": {},
+    "transition": {},
+    "ending": {},
+    "visual": {},
+    "editing": {},
+    "camera": {},
+    "audio": {},
+    "title": {},
+    "thumbnail": {},
+    "audience_psychology": {},
+    "retention": {},
+    "cta": {},
+    "knowledge_density": {},
+    "information_gap": {},
+    "conflict": {},
+    "suspense": {},
+    "question_design": {},
+    "value_delivery": {}
+  }
+}

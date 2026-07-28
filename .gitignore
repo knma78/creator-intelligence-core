@@ -1,0 +1,67 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+**/.cookies.json
+**/cookies.json
+**/cookies.txt
+**/*cookies*.txt
+
+# Runtime data and private research results
+/cache/
+/output/
+/logs/
+*.log
+*.pid
+*.sqlite
+*.sqlite3
+*.db
+
+# Downloaded media, transcripts, and model weights
+*.mp4
+*.mkv
+*.webm
+*.flv
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.srt
+*.vtt
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# Browser and platform authentication state
+**/browser_profile/
+**/platform_auth/
+playwright/.auth/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini

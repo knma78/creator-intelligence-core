@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "purpose": "Creator Knowledge Base author normalization and capability positioning. Keep this file abstract: it defines transferable capability directions, not phrases or imitable style.",
+  "creators": [
+    {
+      "author": "小约翰可汗",
+      "required": true,
+      "positioning": "Storytelling",
+      "profile_name": "Storytelling Profile",
+      "target_audience": "喜欢人物、国家和事件故事的知识型观众",
+      "primary_categories": ["Storytelling", "Hook", "Rhythm", "Character", "Ending", "Transition"]
+    },
+    {
+      "author": "历史调研室",
+      "required": true,
+      "positioning": "Logical Narrative",
+      "profile_name": "Logical Narrative Profile",
+      "target_audience": "希望理解历史事件因果链和背景结构的观众",
+      "primary_categories": ["Logic", "Historical Narrative", "Narration", "Transition", "Ending"]
+    },
+    {
+      "author": "Linvo说宇宙",
+      "aliases": ["Liovo讲宇宙"],
+      "required": true,
+      "positioning": "Science Explanation",
+      "profile_name": "Science Explanation Profile",
+      "target_audience": "对宇宙、科学概念和新研究感兴趣的泛知识观众",
+      "primary_categories": ["Explanation", "Science Narrative", "Hook", "Teaching", "World Building"]
+    },
+    {
+      "author": "食贫道",
+      "required": true,
+      "positioning": "Emotion Narrative",
+      "profile_name": "Emotion Narrative Profile",
+      "target_audience": "关注现实人物、社会现场和纪录片表达的观众",
+      "primary_categories": ["Emotion", "Narration", "Character", "Visualization", "Ending"]
+    },
+    {
+      "author": "毕导",
+      "required": true,
+      "positioning": "Visual Teaching",
+      "profile_name": "Visual Teaching Profile",
+      "target_audience": "喜欢用视觉化、实验化方式理解知识的观众",
+      "primary_categories": ["Visualization", "Teaching", "Explanation", "Rhythm", "Hook"]
+    },
+    {
+      "author": "木鱼水心",
+      "required": true,
+      "positioning": "Story Analysis",
+      "profile_name": "Story Analysis Profile",
+      "target_audience": "希望理解影视剧情、人物和主题表达的观众",
+      "primary_categories": ["Plot Analysis", "Character", "World Building", "Emotion", "Ending"]
+    },
+    {
+      "author": "五个光",
+      "required": true,
+      "positioning": "Anime Narrative",
+      "profile_name": "Anime Narrative Profile",
+      "target_audience": "希望快速进入动漫剧情、人物动机和世界观的观众",
+      "primary_categories": ["Anime Narrative", "Plot Analysis", "World Building", "Character", "Hook", "Rhythm"]
+    },
+    {
+      "author": "燕三嘤嘤嘤",
+      "positioning": "International Commentary",
+      "profile_name": "International Commentary Profile",
+      "target_audience": "关注国际局势、现实议题和国家关系的泛知识观众",
+      "primary_categories": ["Logic", "Narration", "Historical Narrative", "Hook", "Transition", "Ending"]
+    },
+    {
+      "author": "麻薯波比呀",
+      "positioning": "Cross-cultural Short Explainer",
+      "profile_name": "Cross-cultural Short Explainer Profile",
+      "target_audience": "希望快速理解文化差异、社会观察和生活议题的短内容观众",
+      "primary_categories": ["Explanation", "Teaching", "Hook", "Rhythm", "Narration"]
+    },
+    {
+      "author": "影视飓风",
+      "positioning": "Visual Production",
+      "profile_name": "Visual Production Profile",
+      "target_audience": "关注影像制作、技术体验和视觉表达的创作型观众",
+      "primary_categories": ["Visualization", "Teaching", "Explanation", "Rhythm", "Narration"]
+    },
+    {
+      "author": "法兰西小欣欣",
+      "positioning": "Cross-cultural Short Explainer",
+      "profile_name": "Cross-cultural Short Explainer Profile",
+      "target_audience": "关注海外生活、文化差异和社会观察的观众",
+      "primary_categories": ["Explanation", "Teaching", "Hook", "Rhythm", "Narration"]
+    },
+    {
+      "author": "小Lin说",
+      "positioning": "Business Explanation",
+      "profile_name": "Business Explanation Profile",
+      "target_audience": "希望理解商业、经济和公司案例背后机制的泛知识观众",
+      "primary_categories": ["Explanation", "Logic", "Teaching", "Narration", "Hook"]
+    },
+    {
+      "author": "小王Albert",
+      "aliases": ["王骁Albert"],
+      "positioning": "Geopolitical Narrative",
+      "profile_name": "Geopolitical Narrative Profile",
+      "target_audience": "关注国际关系、历史背景和现实议题因果链的观众",
+      "primary_categories": ["Logic", "Historical Narrative", "Narration", "Hook", "Transition", "Ending"]
+    },
+    {
+      "author": "渤海小吏",
+      "positioning": "Long Historical Narrative",
+      "profile_name": "Long Historical Narrative Profile",
+      "target_audience": "希望用长线叙事理解历史人物、制度和事件链条的观众",
+      "primary_categories": ["Historical Narrative", "Storytelling", "Logic", "Narration", "Character", "Ending"]
+    },
+    {
+      "author": "安州牧",
+      "positioning": "Historical Narrative",
+      "profile_name": "Historical Narrative Profile",
+      "target_audience": "关注历史事件、人物关系和时代背景的知识型观众",
+      "primary_categories": ["Historical Narrative", "Storytelling", "Logic", "Narration", "Transition", "Ending"]
+    }
+  ]
+}

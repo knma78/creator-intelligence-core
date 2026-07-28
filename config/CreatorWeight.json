@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-24",
+  "creator_scoring": {
+    "ability_match": 0.45,
+    "reference_share": 0.25,
+    "video_count": 0.15,
+    "template_match": 0.1,
+    "freshness": 0.05
+  },
+  "growth_prediction": {
+    "base_learning_rate": 0.72,
+    "diminishing_factor": 0.82,
+    "creator_diversity_bonus": 0.08,
+    "template_bonus": 0.05
+  },
+  "recommendation": {
+    "min_creator_samples": 3,
+    "max_creator_recommendations": 5,
+    "prefer_existing_creators": true,
+    "discovery_label": "需要寻找合适的UP"
+  }
+}

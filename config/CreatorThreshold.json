@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22",
+  "default": {
+    "target_creator_count": 5,
+    "excellent_creator_score": 75,
+    "min_video_count": 3,
+    "min_confidence": 0.6
+  },
+  "abilities": {
+    "emotion": {"target_creator_count": 6},
+    "visual": {"target_creator_count": 5},
+    "storytelling": {"target_creator_count": 5},
+    "hook": {"target_creator_count": 6},
+    "retention": {"target_creator_count": 5},
+    "conflict": {"target_creator_count": 5},
+    "suspense": {"target_creator_count": 5},
+    "editing": {"target_creator_count": 5},
+    "audio": {"target_creator_count": 4},
+    "camera": {"target_creator_count": 4},
+    "humor": {"target_creator_count": 4},
+    "cta": {"target_creator_count": 4}
+  }
+}

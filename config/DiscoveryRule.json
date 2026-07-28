@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22",
+  "rule_first": true,
+  "ai_discovery": {
+    "enabled": false,
+    "only_when_database_empty": true,
+    "max_results": 10
+  },
+  "candidate": {
+    "dedupe_by_name_platform_ability": true,
+    "max_candidates_per_ability": 20,
+    "min_confidence": 0.55,
+    "default_status": "pending_review",
+    "manual_candidate_status": "pending_review"
+  },
+  "status_machine": {
+    "discovered": ["pending_review", "rejected", "archived"],
+    "pending_review": ["approved", "rejected", "archived"],
+    "approved": ["waiting_analyze", "archived"],
+    "waiting_analyze": ["analyzing", "archived"],
+    "analyzing": ["analyzed", "failed"],
+    "failed": ["waiting_analyze", "archived"],
+    "analyzed": ["synced_to_knowledge_base"],
+    "synced_to_knowledge_base": ["archived"],
+    "rejected": ["archived"],
+    "archived": []
+  },
+  "ability_category_matches": {
+    "retention": ["short", "explainer", "general creator", "anime narrative", "visual production"],
+    "conflict": ["storytelling", "anime narrative", "historical narrative", "emotion narrative", "story analysis"],
+    "suspense": ["storytelling", "anime narrative", "story analysis", "historical narrative"],
+    "editing": ["visual production", "visual teaching", "science explanation"],
+    "audio": ["visual production", "narration", "documentary", "story analysis"],
+    "camera": ["visual production", "visual teaching", "documentary"],
+    "humor": ["general creator", "cross-cultural short explainer", "anime narrative"],
+    "cta": ["short explainer", "general creator", "visual teaching"],
+    "emotion": ["emotion narrative", "story analysis", "storytelling", "anime narrative"],
+    "visual": ["visual production", "visual teaching", "science explanation"],
+    "hook": ["short explainer", "general creator", "storytelling", "visual production"]
+  },
+  "search_plan": {
+    "max_keywords_per_platform": 6,
+    "max_platforms_per_ability": 4,
+    "include_existing_creator_names": true,
+    "include_unanalyzed_candidates": true
+  }
+}
