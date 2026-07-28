@@ -22,13 +22,49 @@ def build_project_information_report(
     creator_kb = _read_json(output_root / "creator_knowledge_base" / "creator_knowledge_base.json")
     cross = _read_json(output_root / "creator_knowledge_base" / "cross_creator_analysis.json")
     template_library = _read_json(output_root / "creator_knowledge_base" / "templates" / "template_library.json")
+    rule_library = _read_json(output_root / "creator_knowledge_base" / "rules" / "rule_library.json")
+    gap_dashboard = _read_json(output_root / "gap_analysis" / "dashboard.json")
+    lexical_manifest = _read_json(output_root.parent / "cache" / "knowledge_base" / "index.json")
+    vector_manifest = _read_json(output_root.parent / "cache" / "knowledge_base" / "chroma" / "manifest.json")
 
-    payload = _build_payload(integrated, creator_manifest, creator_kb, cross, template_library, output_root)
+    payload = _build_payload(
+        integrated,
+        creator_manifest,
+        creator_kb,
+        cross,
+        template_library,
+        rule_library,
+        output_root,
+    )
     json_path = output_dir / "project_information_integration.json"
     markdown_path = output_dir / "project_information_integration.md"
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     markdown_path.write_text(_build_markdown(payload), encoding="utf-8")
-    return {"json": json_path, "markdown": markdown_path}
+
+    overview = _build_current_overview_payload(
+        payload,
+        gap_dashboard,
+        lexical_manifest,
+        vector_manifest,
+        output_root,
+    )
+    overview_dir = output_root / "creator_knowledge_base"
+    overview_json_path = overview_dir / "current_knowledge_overview.json"
+    overview_markdown_path = overview_dir / "current_knowledge_overview.md"
+    overview_json_path.write_text(
+        json.dumps(overview, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    overview_markdown_path.write_text(
+        _build_current_overview_markdown(overview),
+        encoding="utf-8",
+    )
+    return {
+        "json": json_path,
+        "markdown": markdown_path,
+        "knowledge_overview_json": overview_json_path,
+        "knowledge_overview_markdown": overview_markdown_path,
+    }
 
 
 def _build_payload(
@@ -37,6 +73,7 @@ def _build_payload(
     creator_kb: dict[str, Any],
     cross: dict[str, Any],
     template_library: dict[str, Any],
+    rule_library: dict[str, Any],
     output_root: Path,
 ) -> dict[str, Any]:
     summary = integrated.get("summary", {})
@@ -65,6 +102,7 @@ def _build_payload(
 
     capability_docs = creator_kb.get("capability_documents", [])
     template_summary = _template_summary(template_library)
+    rule_summary = _rule_summary(rule_library)
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "source_generated_at": {
@@ -81,6 +119,10 @@ def _build_payload(
             "rag_document_count": (creator_kb.get("rag_index") or {}).get("document_count", 0),
             "template_count": template_summary["template_count"],
             "template_rag_document_count": template_summary["rag_document_count"],
+            "rule_count": rule_summary["rule_count"],
+            "rule_rag_document_count": rule_summary["rag_document_count"],
+            "pattern_count": rule_summary["pattern_count"],
+            "observation_count": rule_summary["observation_count"],
             "date_range": summary.get("date_range", {}),
             "total_views": summary.get("total_views"),
             "total_likes": summary.get("total_likes"),
@@ -121,6 +163,7 @@ def _build_payload(
             for doc in capability_docs
         ],
         "template_library": template_summary,
+        "rule_library": rule_summary,
         "paths": {
             "project_report": str(output_root / "integrated" / "project_information_integration.md"),
             "integrated_report": str(output_root / "integrated" / "integrated_report.md"),
@@ -132,6 +175,10 @@ def _build_payload(
             "rag_index": str(output_root / "creator_knowledge_base" / "knowledge_base" / "index.json"),
             "template_library": str(output_root / "creator_knowledge_base" / "templates" / "template_library.md"),
             "template_rag_index": str(output_root / "creator_knowledge_base" / "templates" / "template_index.json"),
+            "rule_library": str(output_root / "creator_knowledge_base" / "rules" / "rule_library.md"),
+            "rule_rag_index": str(output_root / "creator_knowledge_base" / "rules" / "rule_index.json"),
+            "pattern_library": str(output_root / "creator_knowledge_base" / "rules" / "patterns" / "pattern_library.md"),
+            "observation_library": str(output_root / "creator_knowledge_base" / "rules" / "observations" / "observation_library.json"),
         },
         "policy": {
             "can_use": ["能力", "结构", "顺序", "功能", "适用场景", "抽象方法"],
@@ -233,6 +280,305 @@ def _template_summary(template_library: dict[str, Any]) -> dict[str, Any]:
         "rag_document_count": (template_library.get("rag_index") or {}).get("document_count", 0),
         "collections": collections,
     }
+
+
+def _rule_summary(rule_library: dict[str, Any]) -> dict[str, Any]:
+    rules = rule_library.get("rules", [])
+    evidence_types: dict[str, int] = {}
+    confidence_levels: dict[str, int] = {}
+    for rule in rules:
+        evidence_type = str((rule.get("Evidence") or {}).get("evidence_type") or "unknown")
+        confidence_level = str((rule.get("Confidence") or {}).get("level") or "未知")
+        evidence_types[evidence_type] = evidence_types.get(evidence_type, 0) + 1
+        confidence_levels[confidence_level] = confidence_levels.get(confidence_level, 0) + 1
+    return {
+        "generated_at": rule_library.get("generated_at", ""),
+        "rule_count": len(rules),
+        "pattern_count": int(rule_library.get("pattern_count") or 0),
+        "observation_count": int(rule_library.get("observation_count") or 0),
+        "rag_document_count": (rule_library.get("rag_index") or {}).get("document_count", 0),
+        "evidence_types": evidence_types,
+        "confidence_levels": confidence_levels,
+    }
+
+
+def _build_current_overview_payload(
+    project: dict[str, Any],
+    gap_dashboard: dict[str, Any],
+    lexical_manifest: dict[str, Any],
+    vector_manifest: dict[str, Any],
+    output_root: Path,
+) -> dict[str, Any]:
+    scope = project.get("scope", {})
+    creators = project.get("creators", [])
+    positionings: dict[str, dict[str, Any]] = {}
+    for creator in creators:
+        positioning = str(creator.get("positioning") or "General Creator")
+        group = positionings.setdefault(
+            positioning,
+            {"positioning": positioning, "creators": [], "video_count": 0},
+        )
+        group["creators"].append(str(creator.get("author") or ""))
+        group["video_count"] += int(creator.get("video_count") or 0)
+
+    ability_radar = gap_dashboard.get("ability_radar", [])
+    mature_abilities = [
+        {
+            "ability_key": item.get("ability_key"),
+            "ability_name": item.get("ability_name"),
+            "score": item.get("score"),
+        }
+        for item in ability_radar
+        if int(item.get("score") or 0) > 0
+    ]
+    missing_abilities = [
+        {
+            "ability_key": item.get("ability_key"),
+            "ability_name": item.get("ability_name"),
+            "score": item.get("score"),
+        }
+        for item in ability_radar
+        if int(item.get("score") or 0) <= 0
+    ]
+    gaps = project.get("gaps", {})
+    return {
+        "schema_version": "Current Creator Knowledge Overview v1",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "rule": "只整理可迁移创作能力，不保存或复刻创作者原文表达。",
+        "scope": {
+            "video_count": scope.get("video_count", 0),
+            "creator_count": scope.get("creator_profile_count", 0),
+            "raw_author_count": scope.get("raw_author_count", 0),
+            "up_profile_count": scope.get("up_profile_count", 0),
+            "capability_document_count": scope.get("capability_count", 0),
+            "template_count": scope.get("template_count", 0),
+            "rule_count": scope.get("rule_count", 0),
+            "rule_rag_document_count": scope.get("rule_rag_document_count", 0),
+            "pattern_count": scope.get("pattern_count", 0),
+            "observation_count": scope.get("observation_count", 0),
+            "creator_rag_document_count": scope.get("rag_document_count", 0),
+            "lexical_rag_document_count": lexical_manifest.get("document_count", 0),
+            "vector_rag_document_count": vector_manifest.get("document_count", 0),
+            "embedding_model": vector_manifest.get("embedding_model", ""),
+            "cover_ocr_count": scope.get("cover_ocr_count", 0),
+            "date_range": scope.get("date_range", {}),
+        },
+        "core_chain": {
+            "structure": project.get("cross_creator", {}).get("common_structure", []),
+            "principles": project.get("cross_creator", {}).get("common_traits", []),
+            "hook_distribution": project.get("cross_creator", {}).get("common_hooks", []),
+            "transition_distribution": project.get("cross_creator", {}).get("common_transitions", []),
+            "climax_principles": project.get("cross_creator", {}).get("common_climax", []),
+            "ending_principles": project.get("cross_creator", {}).get("common_endings", []),
+        },
+        "capability_documents": project.get("capability_documents", []),
+        "positioning_groups": sorted(
+            positionings.values(),
+            key=lambda item: (-int(item.get("video_count") or 0), item.get("positioning", "")),
+        ),
+        "template_library": project.get("template_library", {}),
+        "rule_library": project.get("rule_library", {}),
+        "knowledge_health": {
+            **gap_dashboard.get("knowledge_health", {}),
+            "mature_or_covered_abilities": mature_abilities,
+            "missing_standalone_abilities": missing_abilities,
+            "interpretation": (
+                "缺失表示尚未形成独立能力模块或证据映射，"
+                "不代表现有 Storytelling、Hook、Rhythm 等文档中完全没有相关观察。"
+            ),
+        },
+        "known_limits": [
+            *gaps.get("data_gaps", []),
+            *gaps.get("capability_gaps", []),
+            *gaps.get("workflow_gaps", []),
+        ],
+        "priority_actions": gaps.get("priority_actions", []),
+        "usage_recipes": {
+            "故事型内容": ["Storytelling", "Character", "Hook", "Rhythm", "Ending"],
+            "历史与事件解释": ["Logic", "Historical Narrative", "Narration", "Transition", "Ending"],
+            "科学与知识解释": ["Explanation", "Science Narrative", "Teaching", "World Building", "Hook"],
+            "动漫与剧情解析": ["Anime Narrative", "Plot Analysis", "Character", "World Building", "Rhythm"],
+            "视觉教学与制作": ["Visualization", "Teaching", "Explanation", "Rhythm", "Hook"],
+        },
+        "policy": project.get("policy", {}),
+        "paths": {
+            **project.get("paths", {}),
+            "knowledge_overview_markdown": str(
+                output_root / "creator_knowledge_base" / "current_knowledge_overview.md"
+            ),
+            "knowledge_overview_json": str(
+                output_root / "creator_knowledge_base" / "current_knowledge_overview.json"
+            ),
+        },
+    }
+
+
+def _build_current_overview_markdown(overview: dict[str, Any]) -> str:
+    scope = overview["scope"]
+    health = overview["knowledge_health"]
+    chain = overview["core_chain"]
+    templates = overview["template_library"]
+    rules = overview["rule_library"]
+    lines = [
+        "# 当前创作者能力知识整理",
+        "",
+        f"生成时间：{overview['generated_at']}",
+        "",
+        "本文件由高级知识库流程自动更新。只整理结构、顺序、功能和可迁移方法，"
+        "不学习创作者原文、句子、段落、口头禅或个人化语气。",
+        "",
+        "## 一、当前范围",
+        "",
+        f"- 视频证据：{scope.get('video_count', 0)} 条",
+        f"- 归一化创作者画像：{scope.get('creator_count', 0)} 个",
+        f"- 原始作者名：{scope.get('raw_author_count', 0)} 个",
+        f"- UP/频道汇总：{scope.get('up_profile_count', 0)} 个",
+        f"- 能力文档：{scope.get('capability_document_count', 0)} 类",
+        f"- 可调用模板：{scope.get('template_count', 0)} 个",
+        f"- 可审计规则：{scope.get('rule_count', 0)} 条",
+        f"- 跨样本模式：{scope.get('pattern_count', 0)} 条",
+        f"- 单视频观察：{scope.get('observation_count', 0)} 条",
+        f"- 创作者能力 RAG：{scope.get('creator_rag_document_count', 0)} 个文档",
+        f"- 全量词法/向量 RAG：{scope.get('lexical_rag_document_count', 0)} / {scope.get('vector_rag_document_count', 0)} 个分块",
+        f"- 向量模型：{scope.get('embedding_model', '')}",
+        f"- 封面 OCR：{scope.get('cover_ocr_count', 0)} / {scope.get('video_count', 0)}",
+        "",
+        "## 二、已经形成的通用创作链",
+        "",
+        "1. 开场任务：用问题、反差、风险、规则或异常建立观看理由。",
+        "2. 背景铺垫：只补齐理解核心问题所需的最小背景。",
+        "3. 核心推进：按时间线、因果链、人物动机、机制或任务阶段递进。",
+        "4. 信息峰值：让关键冲突、证据、机制或结果在中后段集中汇合。",
+        "5. 结尾收束：回扣开场任务，交付结论、判断框架或情绪余味。",
+        "",
+        f"- 样本共同结构：{' -> '.join(chain.get('structure', []))}",
+        f"- Hook 主信号：{_format_items(chain.get('hook_distribution', []), 'item', 5)}",
+        f"- 转场主信号：{_format_items(chain.get('transition_distribution', []), 'item', 7)}",
+        "",
+        "## 三、能力知识库",
+        "",
+        "| 能力 | 已抽象功能 | 可迁移方法 | 证据视频 |",
+        "| --- | --- | --- | ---: |",
+    ]
+    for doc in overview.get("capability_documents", []):
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _cell(doc.get("category")),
+                    _cell(doc.get("capability")),
+                    _cell("；".join(doc.get("transferable_methods", []))),
+                    str(doc.get("source_video_count", 0)),
+                ]
+            )
+            + " |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 四、创作者定位分布",
+            "",
+            "| 定位 | 创作者 | 视频数 |",
+            "| --- | --- | ---: |",
+        ]
+    )
+    for group in overview.get("positioning_groups", []):
+        lines.append(
+            f"| {_cell(group.get('positioning'))} | "
+            f"{_cell('、'.join(group.get('creators', [])))} | "
+            f"{group.get('video_count', 0)} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 五、已经可以直接调用的模板",
+            "",
+            f"- 模板总数：{templates.get('template_count', 0)}",
+        ]
+    )
+    for key, value in (templates.get("collections") or {}).items():
+        lines.append(f"- {value.get('title', key)}：{value.get('count', 0)} 个")
+
+    lines.extend(
+        [
+            "",
+            "模板已经覆盖 Hook、脚本结构、转场、高潮、结尾和从选题到脚本的工作流。",
+            "调用时应填写对象、任务、变量、证据和结果等槽位，不套用任何创作者的原句。",
+            "",
+            f"- 可审计规则：{rules.get('rule_count', 0)} 条",
+            f"- Pattern：{rules.get('pattern_count', 0)} 条",
+            f"- Observation：{rules.get('observation_count', 0)} 条",
+            f"- 直接证据规则：{(rules.get('evidence_types') or {}).get('direct_pattern_observation', 0)} 条",
+            f"- 间接/综合规则："
+            f"{(rules.get('evidence_types') or {}).get('indirect_capability_support', 0) + (rules.get('evidence_types') or {}).get('synthesized_workflow', 0)} 条",
+            f"- 高/中/低置信度："
+            f"{(rules.get('confidence_levels') or {}).get('高', 0)} / "
+            f"{(rules.get('confidence_levels') or {}).get('中', 0)} / "
+            f"{(rules.get('confidence_levels') or {}).get('低', 0)}",
+            "",
+            "## 六、知识健康度",
+            "",
+            f"- 总体评分：{health.get('overall_score', 0)} / 100",
+            f"- 能力项：{health.get('ability_count', 0)}",
+            f"- 已成熟：{health.get('mature_count', 0)}",
+            f"- 独立模块缺失：{health.get('missing_count', 0)}",
+            f"- 证据引用总数：{health.get('reference_count_total', 0)}",
+            "",
+            "已成熟或已有覆盖："
+            + "、".join(
+                item.get("ability_name", "")
+                for item in health.get("mature_or_covered_abilities", [])
+            ),
+            "",
+            "尚未形成独立模块："
+            + "、".join(
+                item.get("ability_name", "")
+                for item in health.get("missing_standalone_abilities", [])
+            ),
+            "",
+            f"解释：{health.get('interpretation', '')}",
+            "",
+            "## 七、按任务调用",
+            "",
+        ]
+    )
+    for task, categories in overview.get("usage_recipes", {}).items():
+        lines.append(f"- {task}：{' + '.join(categories)}")
+
+    lines.extend(["", "## 八、当前不足", ""])
+    for item in overview.get("known_limits", []):
+        lines.append(f"- {item}")
+
+    lines.extend(["", "## 九、下一步优先级", ""])
+    for item in overview.get("priority_actions", []):
+        lines.append(f"- {item}")
+
+    paths = overview["paths"]
+    lines.extend(
+        [
+            "",
+            "## 十、主要文件",
+            "",
+            f"- 当前总览：`{paths['knowledge_overview_markdown']}`",
+            f"- 当前总览 JSON：`{paths['knowledge_overview_json']}`",
+            f"- 能力知识库：`{paths['creator_knowledge_base']}`",
+            f"- 跨创作者分析：`{paths['cross_creator_analysis']}`",
+            f"- 创作者画像：`{paths['creator_profiles']}`",
+            f"- 单视频能力证据：`{paths['video_capability_reports']}`",
+            f"- 模板库：`{paths['template_library']}`",
+            f"- 可审计规则库：`{paths['rule_library']}`",
+            f"- Pattern 库：`{paths['pattern_library']}`",
+            f"- Observation 库：`{paths['observation_library']}`",
+            "",
+            "## 十一、使用边界",
+            "",
+            f"- 可以调用：{'、'.join(overview['policy'].get('can_use', []))}",
+            f"- 禁止调用：{'、'.join(overview['policy'].get('do_not_use', []))}",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _build_markdown(payload: dict[str, Any]) -> str:

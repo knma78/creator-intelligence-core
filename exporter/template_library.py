@@ -60,6 +60,15 @@ def build_template_library(
             encoding="utf-8",
         )
         written[collection_name] = path
+    from exporter.rule_library import build_rule_library
+
+    written.update(
+        build_rule_library(
+            payload,
+            output_root=output_root,
+            cache_root=cache_root,
+        )
+    )
     return written
 
 

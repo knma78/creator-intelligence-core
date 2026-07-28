@@ -201,7 +201,7 @@ python main.py --advanced-kb
 
 ## Creator Knowledge Base
 
-构建创作者能力知识库、可调用模板库和项目总整合报告：
+构建创作者能力知识库、可调用模板库、三级规则知识库和项目总整合报告：
 
 ```bash
 python main.py --build-creator-kb
@@ -214,7 +214,18 @@ python main.py --project-report
 ```bash
 python main.py --creator-search "怎么设计一个问题式开头" --top-k 8
 python main.py --creator-search "转场模板" --top-k 8
+python main.py --creator-search "反差信息缺口的观察、模式、效果证据和限制" --top-k 8
 ```
+
+规则知识库采用三层结构：
+
+- `Observation`：单条视频里检测到的抽象功能信号和时间位置。
+- `Pattern`：多个 Observation 的频率、分布和相关性汇总。
+- `Rule`：基于 Pattern 形成的条件性创作假设，明确区分观察、推断和系统建议。
+
+规则会分别计算模式置信度、效果置信度和证据质量。播放、点赞和评论只作为结果代理变量；缺少留存、完播或受控对照时，不会写成因果结论。人工复核登记保存在 `rules/rule_reviews.json`，生成流程不会覆盖该文件。
+
+完整字段和生命周期说明见 [`docs/creator_knowledge_schema.md`](docs/creator_knowledge_schema.md)。
 
 UP 定位和别名维护在：
 
@@ -247,6 +258,11 @@ output/creator_knowledge_base/
   creators/<作者>/creator_profile.md / creator_profile.json / style_summary.json
   videos/<视频ID>/video.md / analysis.json / structure.json / keywords.json / summary.json
   templates/template_library.md / template_library.json / template_index.json
+  rules/rule_library.md / rule_library.json / rule_index.json
+  rules/R-<编号>.md
+  rules/observations/<视频ID>.md / observation_library.json
+  rules/patterns/P-<规则编号>.md / pattern_library.md / pattern_library.json
+  rules/rule_reviews.json
 ```
 
 ## 目录

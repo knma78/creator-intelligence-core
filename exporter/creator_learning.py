@@ -226,35 +226,49 @@ def search_creator_knowledge_base(
         if score > 0:
             scored.append((score, doc))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [
-        {
+    results = []
+    for score, doc in scored[:top_k]:
+        source_video_ids = doc.get("source_video_ids", [])
+        results.append(
+            {
             "score": round(score, 4),
             "category": doc.get("category"),
             "title": doc.get("title"),
             "capability": doc.get("capability"),
             "creators": doc.get("creators", []),
             "template_collection": doc.get("template_collection", ""),
-            "source_video_ids": doc.get("source_video_ids", []),
+            "knowledge_type": doc.get("knowledge_type", ""),
+            "rule_id": doc.get("rule_id", ""),
+            "pattern_id": doc.get("pattern_id", ""),
+            "observation_id": doc.get("observation_id", ""),
+            "status": doc.get("status", ""),
+            "confidence": doc.get("confidence", {}),
+            "source_video_count": len(source_video_ids),
+            "source_video_ids": source_video_ids[:20],
             "excerpt": doc.get("text", "")[:260],
-        }
-        for score, doc in scored[:top_k]
-    ]
+            }
+        )
+    return results
 
 
 def _load_template_documents(index_path: Path) -> list[dict[str, Any]]:
     candidates = [
         index_path.with_name("template_index.json"),
+        index_path.with_name("rule_index.json"),
         SETTINGS.cache_dir / "creator_knowledge_base" / "template_index.json",
+        SETTINGS.cache_dir / "creator_knowledge_base" / "rule_index.json",
         SETTINGS.output_dir / "creator_knowledge_base" / "templates" / "template_index.json",
+        SETTINGS.output_dir / "creator_knowledge_base" / "rules" / "rule_index.json",
     ]
+    documents = []
     for candidate in candidates:
         if not candidate.exists():
             continue
         payload = _read_json(candidate)
-        documents = payload.get("documents", [])
-        if isinstance(documents, list):
-            return documents
-    return []
+        candidate_documents = payload.get("documents", [])
+        if isinstance(candidate_documents, list):
+            documents.extend(candidate_documents)
+    return _dedupe_documents(documents)
 
 
 def _dedupe_documents(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1632,6 +1646,9 @@ def _category_query_boost(query: str, doc: dict[str, Any]) -> float:
         "Historical Narrative": ["history", "历史"],
         "Narration": ["narration", "叙述", "表达"],
         "Template": ["template", "模板", "脚本", "开头", "转场", "结尾", "高潮", "工作流"],
+        "Rule": ["rule", "规则", "证据", "置信度", "反例", "触发", "约束", "剪辑"],
+        "Pattern": ["pattern", "模式", "频率", "分布", "跨样本", "相关性"],
+        "Observation": ["observation", "观察", "单视频", "时间位置", "来源", "检测信号"],
     }
     boost = 0.0
     category_aliases = aliases.get(category, [])

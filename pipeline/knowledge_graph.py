@@ -10,6 +10,7 @@ class KnowledgeGraphState(TypedDict, total=False):
     vector_manifest: str
     creator_manifest: str
     template_library: str
+    rule_library: str
     gap_analysis: str
     discovery_dashboard: str
     project_report: str
@@ -110,6 +111,7 @@ def _build_creator(state: KnowledgeGraphState, settings: Settings) -> KnowledgeG
     return {
         "creator_manifest": str(creator["manifest"]),
         "template_library": str(templates["template_library_json"]),
+        "rule_library": str(templates["rule_library_json"]),
         "steps": [*state.get("steps", []), "creator"],
     }
 
