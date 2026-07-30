@@ -2,9 +2,14 @@ const panels = document.querySelectorAll(".panel");
 const navItems = document.querySelectorAll(".nav-item");
 const jobForm = document.getElementById("jobForm");
 const sourceInput = document.getElementById("sourceInput");
+const sourceHint = document.getElementById("sourceHint");
 const limitInput = document.getElementById("limitInput");
 const v3Input = document.getElementById("v3Input");
 const kbInput = document.getElementById("kbInput");
+const contentWorkOptions = document.getElementById("contentWorkOptions");
+const subjectNameInput = document.getElementById("subjectNameInput");
+const contentCategoryInput = document.getElementById("contentCategoryInput");
+const modeInputs = [...document.querySelectorAll('input[name="mode"]')];
 const startButton = document.getElementById("startButton");
 const buildKbButton = document.getElementById("buildKbButton");
 const buildAdvancedKbButton = document.getElementById("buildAdvancedKbButton");
@@ -155,8 +160,29 @@ jobForm.addEventListener("submit", async (event) => {
     limit: limitInput.value,
     v3: v3Input.checked,
     build_kb: kbInput.checked,
+    subject_name: mode === "content" ? subjectNameInput.value.trim() : "",
+    content_category: mode === "content" ? contentCategoryInput.value : "auto",
   });
 });
+
+modeInputs.forEach((input) => {
+  input.addEventListener("change", updateTaskMode);
+});
+updateTaskMode();
+
+function updateTaskMode() {
+  const mode = new FormData(jobForm).get("mode");
+  const isContent = mode === "content";
+  contentWorkOptions.hidden = !isContent;
+  contentWorkOptions.classList.toggle("visible", isContent);
+  if (isContent) {
+    sourceInput.placeholder = "每行输入一个B站视频链接或BV号；多期内容会合并为同一作品";
+    sourceHint.textContent = "综艺、电影、动漫、纪录片及其他B站内容均可学习";
+  } else {
+    sourceInput.placeholder = "输入 B站 / YouTube / 抖音视频链接、创作者主页、UP 名或本地文件路径";
+    sourceHint.textContent = "支持单视频、创作者批量、内容作品和本地媒体";
+  }
+}
 
 reportForm.addEventListener("submit", async (event) => {
   event.preventDefault();

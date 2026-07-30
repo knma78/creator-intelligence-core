@@ -266,7 +266,7 @@ input:focus {
 
 .segmented {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   overflow: hidden;
   height: 42px;
   border: 1px solid var(--border);
@@ -1715,6 +1715,20 @@ input:focus {
   gap: 20px;
 }
 
+.content-work-options {
+  display: none;
+  grid-template-columns: minmax(220px, 1fr) 150px;
+  align-items: end;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid #263a40;
+  background: #081216;
+}
+
+.content-work-options.visible {
+  display: grid;
+}
+
 .analysis-options .control-grid {
   grid-template-columns: 126px minmax(120px, 1fr) minmax(150px, 1fr);
   align-items: end;
@@ -1922,6 +1936,10 @@ input:focus {
   .analysis-options .control-grid {
     grid-template-columns: 1fr;
     gap: 9px;
+  }
+
+  .content-work-options {
+    grid-template-columns: 1fr;
   }
 
   .analysis-options .switch {
@@ -2868,8 +2886,8 @@ select:focus {
   }
 
   .segmented {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    height: 40px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: 80px;
     padding: 0;
   }
 

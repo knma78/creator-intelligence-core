@@ -12,6 +12,7 @@ from downloader.bilibili_up import is_bilibili_up_source
 from downloader.social import detect_social_platform, is_douyin_profile_url
 from downloader.youtube import is_youtube_channel_url, is_youtube_url
 from pipeline.batch import run_up_pipeline
+from pipeline.content import run_content_pipeline
 from pipeline.run import run_video_pipeline
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,35 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Treat source as a Bilibili/YouTube/Douyin creator homepage and run batch analysis.",
     )
-    parser.add_argument("--limit", type=int, default=None, help="Max videos to analyze for UP batch mode.")
+    parser.add_argument(
+        "--content-work",
+        action="store_true",
+        help="Treat one or more Bilibili video links as one content work.",
+    )
+    parser.add_argument(
+        "--content-category",
+        choices=[
+            "auto",
+            "variety",
+            "movie",
+            "anime",
+            "documentary",
+            "other",
+        ],
+        default="auto",
+        help="Content work category.",
+    )
+    parser.add_argument(
+        "--subject-name",
+        default="",
+        help="Optional variety, movie, anime or other work name.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max videos to analyze for creator/content batch mode.",
+    )
     parser.add_argument("--v3", action="store_true", help="Enable V3 enrichment: comments, cover, OCR, title stats.")
     parser.add_argument("--build-kb", action="store_true", help="Build the local RAG knowledge base after analysis, or by itself.")
     parser.add_argument("--build-vector-kb", action="store_true", help="Build the Chroma semantic vector knowledge base.")
@@ -209,6 +238,29 @@ def main() -> None:
             raise SystemExit("Missing source. Provide a video link/BV/local file, use --up for UP batch, or use --search/--build-kb.")
 
         source_path_exists = Path(args.source).expanduser().exists()
+        if args.content_work:
+            result = run_content_pipeline(
+                args.source,
+                settings,
+                subject_name=args.subject_name,
+                content_category=args.content_category,
+                limit=args.limit,
+                enrich_v3=args.v3,
+                build_kb=args.build_kb or args.build_vector_kb,
+            )
+            print(f"Content profile: {result['profile_path']}")
+            print(f"Content manifest: {result['manifest_path']}")
+            if result.get("knowledge_base_path"):
+                print(f"Knowledge base: {result['knowledge_base_path']}")
+            if args.build_vector_kb:
+                from rag.vector_store import build_vector_knowledge_base
+
+                manifest_path = build_vector_knowledge_base(
+                    settings=settings
+                )
+                print(f"Vector knowledge base built: {manifest_path}")
+            return
+
         should_run_up = (
             args.up
             or is_bilibili_up_source(args.source)

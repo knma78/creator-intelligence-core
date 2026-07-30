@@ -23,6 +23,7 @@ def build_knowledge_base(
 ) -> Path:
     index_path = index_path or (settings.knowledge_base_dir / "index.json")
     documents = []
+    content_subjects = _load_content_subjects(output_root)
     for video_dir in sorted(path for path in output_root.iterdir() if path.is_dir()):
         analysis_path = video_dir / "analysis.json"
         subtitle_path = video_dir / "subtitle.txt"
@@ -32,11 +33,20 @@ def build_knowledge_base(
         analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
         subtitle = subtitle_path.read_text(encoding="utf-8") if subtitle_path.exists() else ""
         v3_text = _read_v3_text(v3_path)
+        learning_subjects = content_subjects.get(video_dir.name, [])
+        subject_text = "\n".join(
+            (
+                f"内容作品：{item.get('subject_name', '')}；"
+                f"内容类型：{item.get('content_category_label', '')}"
+            )
+            for item in learning_subjects
+        )
         base_text = "\n".join(
             [
                 f"标题：{analysis.get('title', video_dir.name)}",
                 f"一句话总结：{analysis.get('one_sentence_summary', '')}",
                 f"值得学习：{'；'.join(analysis.get('learnings', []))}",
+                subject_text,
                 v3_text,
                 subtitle,
             ]
@@ -48,6 +58,7 @@ def build_knowledge_base(
                     "video_id": video_dir.name,
                     "title": analysis.get("title", video_dir.name),
                     "source_path": str(video_dir),
+                    "learning_subjects": learning_subjects,
                     "text": chunk,
                 }
             )
@@ -123,6 +134,7 @@ def _search_lexical_knowledge_base(
             "chunk_id": doc.get("chunk_id"),
             "excerpt": _excerpt(doc.get("text", ""), query),
             "source_path": doc.get("source_path"),
+            "learning_subjects": doc.get("learning_subjects", []),
         }
         for score, doc in scores[:top_k]
     ]
@@ -161,6 +173,38 @@ def _read_v3_text(v3_path: Path) -> str:
         return payload.get("rag_ready_text", "")
     except Exception:
         return ""
+
+
+def _load_content_subjects(
+    output_root: Path,
+) -> dict[str, list[dict[str, str]]]:
+    by_video: dict[str, list[dict[str, str]]] = {}
+    for profile_path in output_root.glob(
+        "content_bilibili_*/content_profile.json"
+    ):
+        try:
+            profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            logger.warning("Skipping invalid content profile: %s", profile_path)
+            continue
+        if profile.get("subject_type") != "content_work":
+            continue
+        subject = {
+            "subject_type": "content_work",
+            "subject_id": str(profile.get("subject_id") or ""),
+            "subject_name": str(profile.get("subject_name") or ""),
+            "content_category": str(
+                profile.get("content_category") or "other"
+            ),
+            "content_category_label": str(
+                profile.get("content_category_label") or "其他内容"
+            ),
+        }
+        for video in profile.get("videos", []):
+            video_id = str(video.get("video_id") or "").strip()
+            if video_id and subject not in by_video.setdefault(video_id, []):
+                by_video[video_id].append(subject)
+    return by_video
 
 
 def _chunk_text(text: str, chunk_chars: int) -> list[str]:

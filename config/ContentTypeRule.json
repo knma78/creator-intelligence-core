@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "default_category": "other",
+  "categories": [
+    {
+      "id": "variety",
+      "label": "综艺",
+      "keywords": [
+        "综艺",
+        "真人秀",
+        "脱口秀",
+        "访谈",
+        "晚会",
+        "音乐现场",
+        "舞台",
+        "reaction"
+      ]
+    },
+    {
+      "id": "movie",
+      "label": "电影",
+      "keywords": [
+        "电影",
+        "影片",
+        "影评",
+        "电影解说",
+        "院线",
+        "幕后",
+        "导演",
+        "cinema"
+      ]
+    },
+    {
+      "id": "anime",
+      "label": "动漫",
+      "keywords": [
+        "动漫",
+        "动画",
+        "番剧",
+        "新番",
+        "国漫",
+        "漫画",
+        "anime",
+        "animation"
+      ]
+    },
+    {
+      "id": "documentary",
+      "label": "纪录片",
+      "keywords": [
+        "纪录片",
+        "纪实",
+        "人文",
+        "自然纪录",
+        "历史纪录",
+        "documentary"
+      ]
+    },
+    {
+      "id": "other",
+      "label": "其他内容",
+      "keywords": []
+    }
+  ]
+}

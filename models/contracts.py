@@ -31,6 +31,11 @@ class BatchPipelineResult(TypedDict):
     knowledge_base_skipped_reason: str | None
     video_outputs: list[dict[str, Any]]
     warnings: NotRequired[list[str]]
+    subject_type: NotRequired[str]
+    subject_id: NotRequired[str]
+    subject_name: NotRequired[str]
+    content_category: NotRequired[str]
+    content_category_label: NotRequired[str]
 
 
 def build_pipeline_result(

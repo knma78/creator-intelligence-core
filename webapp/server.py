@@ -32,6 +32,7 @@ from downloader.platform_auth import (
 from downloader.social import detect_social_platform, is_douyin_profile_url
 from downloader.youtube import is_youtube_channel_url, is_youtube_url
 from pipeline.batch import run_up_pipeline
+from pipeline.content import run_content_pipeline
 from pipeline.run import run_video_pipeline_details
 from processor.whisper import get_whisper_runtime_status
 from rag.knowledge_base import build_knowledge_base, search_knowledge_base
@@ -51,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 WEB_ROOT = Path(__file__).resolve().parent
 STATIC_ROOT = WEB_ROOT / "static"
-APP_VERSION = "2026.07.30-progress-contracts.1"
+APP_VERSION = "2026.07.30-content-works.1"
 JOB_SCHEMA_VERSION = "1.0"
 
 
@@ -164,6 +165,7 @@ def create_handler(state: AppState):
                             "youtube": True,
                             "douyin": True,
                             "xiaohongshu": True,
+                            "bilibili_content_works": True,
                             "v3_nlp": True,
                             "scene_detection": True,
                         },
@@ -171,6 +173,7 @@ def create_handler(state: AppState):
                             "bilibili": {
                                 "single_video": True,
                                 "creator_batch": True,
+                                "content_work_batch": True,
                                 "cookie_configured": get_platform_auth_status(
                                     "bilibili",
                                     state.settings,
@@ -542,6 +545,10 @@ def _run_job(state: AppState, job_id: str) -> None:
     mode = str(payload.get("mode") or "auto")
     enrich_v3 = bool(payload.get("v3"))
     build_kb = bool(payload.get("build_kb"))
+    subject_name = str(payload.get("subject_name") or "").strip()
+    content_category = str(
+        payload.get("content_category") or "auto"
+    ).strip()
     candidate_id = str(payload.get("candidate_id") or "").strip()
     limit = payload.get("limit")
     limit = int(limit) if str(limit or "").strip() else None
@@ -645,6 +652,92 @@ def _run_job(state: AppState, job_id: str) -> None:
             ensure_platform_authorized(auth_platform, state.settings)
 
         resolved_mode = _resolve_mode(source, mode)
+        if resolved_mode == "content":
+            state.jobs.update(
+                job_id,
+                stage="内容作品",
+                progress=15,
+                log="正在按综艺、电影、动漫或其他内容作品批量蒸馏B站视频。",
+            )
+
+            def update_content_progress(
+                stage: str,
+                progress: int,
+                message: str,
+            ) -> None:
+                _update_job_progress(
+                    state,
+                    job_id,
+                    stage,
+                    progress,
+                    message,
+                )
+
+            result = run_content_pipeline(
+                source,
+                state.settings,
+                subject_name=subject_name,
+                content_category=content_category,
+                limit=limit,
+                enrich_v3=enrich_v3,
+                build_kb=build_kb,
+                progress_callback=update_content_progress,
+            )
+            files = [
+                _file_item(
+                    "内容作品画像 content_profile.md",
+                    result["profile_path"],
+                ),
+                _file_item(
+                    "内容作品清单 content_manifest.json",
+                    result["manifest_path"],
+                ),
+            ]
+            for item in result.get("video_outputs", []):
+                files.append(
+                    _file_item(
+                        f"{item['video_id']} video.md",
+                        item["markdown_path"],
+                    )
+                )
+            if result.get("knowledge_base_path"):
+                files.append(
+                    _file_item(
+                        "知识库 index.json",
+                        result["knowledge_base_path"],
+                    )
+                )
+            state.jobs.update(
+                job_id,
+                status="done",
+                stage="完成",
+                progress=100,
+                result={
+                    "type": "content_work",
+                    "platform": "bilibili",
+                    "subject_id": result["subject_id"],
+                    "subject_name": result["subject_name"],
+                    "content_category": result["content_category"],
+                    "content_category_label": result[
+                        "content_category_label"
+                    ],
+                    "success_count": result["success_count"],
+                    "failure_count": result["failure_count"],
+                    "knowledge_base_status": result.get(
+                        "knowledge_base_status"
+                    ),
+                    "knowledge_base_skipped_reason": result.get(
+                        "knowledge_base_skipped_reason"
+                    ),
+                    "files": files,
+                },
+                log=(
+                    f"内容作品“{result['subject_name']}”蒸馏完成，"
+                    f"类型：{result['content_category_label']}。"
+                ),
+            )
+            return
+
         if resolved_mode == "up":
             state.jobs.update(
                 job_id,
@@ -792,7 +885,7 @@ def _run_job(state: AppState, job_id: str) -> None:
 
 
 def _resolve_mode(source: str, mode: str) -> str:
-    if mode in {"video", "up"}:
+    if mode in {"video", "up", "content"}:
         return mode
     if is_bilibili_up_source(source):
         return "up"

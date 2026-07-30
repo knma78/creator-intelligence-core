@@ -58,6 +58,10 @@ def build_vector_knowledge_base(
                     "video_id": str(item.get("video_id") or ""),
                     "title": str(item.get("title") or ""),
                     "source_path": str(item.get("source_path") or ""),
+                    "learning_subjects": json.dumps(
+                        item.get("learning_subjects") or [],
+                        ensure_ascii=False,
+                    ),
                 }
                 for item in batch
             ],
@@ -109,6 +113,9 @@ def search_vector_knowledge_base(
                 "chunk_id": chunk_id,
                 "excerpt": str(text or "")[:240],
                 "source_path": metadata.get("source_path"),
+                "learning_subjects": _decode_learning_subjects(
+                    metadata.get("learning_subjects")
+                ),
             }
         )
     return rows
@@ -116,6 +123,18 @@ def search_vector_knowledge_base(
 
 def vector_backend_ready(settings: Settings = SETTINGS) -> bool:
     return (settings.vector_knowledge_base_dir / "manifest.json").exists()
+
+
+def _decode_learning_subjects(value: Any) -> list[dict[str, Any]]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    try:
+        payload = json.loads(str(value))
+    except (TypeError, json.JSONDecodeError):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
 
 
 @lru_cache(maxsize=2)

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#060b0e" />
     <title>Content Research</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="/static/styles.css?v=20260730-progress-contracts-1" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260730-content-works-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -96,7 +96,7 @@
               <div class="field-block analysis-source">
                 <label for="sourceInput">分析需求</label>
                 <textarea id="sourceInput" name="source" rows="5" placeholder="输入 B站 / YouTube / 抖音视频链接、创作者主页、UP 名或本地文件路径"></textarea>
-                <span class="field-hint">支持单视频、创作者批量分析和本地媒体</span>
+                <span id="sourceHint" class="field-hint">支持单视频、创作者批量、内容作品和本地媒体</span>
               </div>
 
               <div class="analysis-options">
@@ -106,6 +106,25 @@
                     <label><input type="radio" name="mode" value="auto" checked /><span>自动识别</span></label>
                     <label><input type="radio" name="mode" value="video" /><span>单视频</span></label>
                     <label><input type="radio" name="mode" value="up" /><span>创作者批量</span></label>
+                    <label><input type="radio" name="mode" value="content" /><span>内容作品</span></label>
+                  </div>
+                </div>
+
+                <div id="contentWorkOptions" class="content-work-options" hidden>
+                  <div class="field-block">
+                    <label for="subjectNameInput">作品名称</label>
+                    <input id="subjectNameInput" type="text" maxlength="120" placeholder="例如：某综艺第1季（可留空自动取标题）" />
+                  </div>
+                  <div class="field-block">
+                    <label for="contentCategoryInput">内容类型</label>
+                    <select id="contentCategoryInput">
+                      <option value="auto">自动识别</option>
+                      <option value="variety">综艺</option>
+                      <option value="movie">电影</option>
+                      <option value="anime">动漫</option>
+                      <option value="documentary">纪录片</option>
+                      <option value="other">其他内容</option>
+                    </select>
                   </div>
                 </div>
 
@@ -428,6 +447,6 @@
       </main>
     </div>
 
-    <script src="/static/app.js?v=20260730-progress-contracts-1"></script>
+    <script src="/static/app.js?v=20260730-content-works-1"></script>
   </body>
 </html>

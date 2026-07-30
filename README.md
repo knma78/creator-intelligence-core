@@ -78,6 +78,33 @@ YouTube 频道输出到 `output/channel_youtube_<频道缓存键>/`，每条视�
 output/<视频ID>/
 ```
 
+### B站内容作品蒸馏
+
+除按 UP 学习外，也可以把一个或多个 B站视频作为同一内容作品学习。
+支持综艺、电影、动漫、纪录片和其他内容，原视频作者信息仍会保留。
+
+Web UI 中选择“内容作品”，填写作品名称和类型，并在输入框中每行粘贴
+一个视频链接或 BV 号。多期节目或多集动漫会汇总为同一份作品画像。
+
+命令行也可分析单个作品视频：
+
+```bash
+python main.py "https://www.bilibili.com/video/BVxxxx" --content-work --content-category anime --subject-name "作品名" --build-kb
+```
+
+输出：
+
+```text
+output/content_bilibili_<作品键>/
+  content_manifest.json
+  content_profile.json
+  content_profile.md
+```
+
+内容分类规则保存在 `config/ContentTypeRule.json`，后续增加新内容类型或
+关键词不需要修改分析管线。知识库会在保留视频和原作者信息的同时记录
+作品名称与内容类型。
+
 ## V3.0
 
 开启评论、封面、OCR、标题统计增强分析：
@@ -365,6 +392,7 @@ http://127.0.0.1:7860
 界面功能：
 
 - 自动判断多平台单视频、B站 UP、YouTube 频道或抖音创作者批量
+- 将一个或多条 B站视频按综艺、电影、动漫、纪录片或其他内容作品聚合蒸馏
 - 可开启 V3 增强
 - V3 使用 spaCy、RapidOCR、OpenCV 和 PySceneDetect 分析字幕、封面与镜头节奏
 - 可快速更新词法索引，或用 LangGraph 完整更新知识系统
