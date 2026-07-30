@@ -4,6 +4,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+VIDEO_SCHEMA_VERSION = "1.0"
+TRANSCRIPT_SCHEMA_VERSION = "1.0"
+ANALYSIS_SCHEMA_VERSION = "1.0"
+
 
 def _path_to_str(value: Path | None) -> str | None:
     return str(value) if value else None
@@ -31,6 +35,7 @@ class Video:
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
+        data["schema_version"] = VIDEO_SCHEMA_VERSION
         data["video_path"] = _path_to_str(self.video_path)
         data["subtitle_path"] = _path_to_str(self.subtitle_path)
         data["metadata_path"] = _path_to_str(self.metadata_path)
@@ -56,7 +61,12 @@ class TranscriptSegment:
     text: str
 
     def to_dict(self) -> dict[str, Any]:
-        return {"start": self.start, "end": self.end, "text": self.text}
+        return {
+            "schema_version": TRANSCRIPT_SCHEMA_VERSION,
+            "start": self.start,
+            "end": self.end,
+            "text": self.text,
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "TranscriptSegment":
@@ -79,6 +89,7 @@ class Transcript:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": TRANSCRIPT_SCHEMA_VERSION,
             "video_id": self.video_id,
             "text": self.text,
             "source": self.source,
@@ -119,7 +130,9 @@ class AnalysisResult:
     raw_llm_result: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["schema_version"] = ANALYSIS_SCHEMA_VERSION
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AnalysisResult":

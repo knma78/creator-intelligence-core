@@ -6,6 +6,7 @@ from pathlib import Path
 
 from config import SETTINGS, Settings
 from exporter.markdown import build_markdown
+from infrastructure.atomic_io import atomic_write_json, atomic_write_text
 from models import AnalysisResult, Transcript, Video
 
 
@@ -23,13 +24,10 @@ def export_results(
         _copy_if_exists(transcript.srt_path, output_dir / "subtitle.srt")
 
     analysis_path = output_dir / "analysis.json"
-    analysis_path.write_text(
-        json.dumps(analysis.to_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    atomic_write_json(analysis_path, analysis.to_dict())
 
     markdown_path = output_dir / "video.md"
-    markdown_path.write_text(build_markdown(video, analysis), encoding="utf-8")
+    atomic_write_text(markdown_path, build_markdown(video, analysis))
     return markdown_path
 
 

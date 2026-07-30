@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
+from infrastructure.atomic_io import atomic_write_json
 
 TOKEN_RE = re.compile(r"[\u4e00-\u9fff]+|[A-Za-z0-9_+-]+")
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ def build_knowledge_base(
 
     payload = {"version": 1, "document_count": len(documents), "documents": documents}
     index_path.parent.mkdir(parents=True, exist_ok=True)
-    index_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(index_path, payload)
     return index_path
 
 

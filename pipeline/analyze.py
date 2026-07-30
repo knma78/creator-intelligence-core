@@ -5,6 +5,7 @@ import logging
 
 from analyzer.analyze import run_analysis
 from config import SETTINGS, Settings
+from infrastructure.atomic_io import atomic_write_json
 from models import AnalysisResult, Transcript, Video
 
 logger = logging.getLogger(__name__)
@@ -23,10 +24,7 @@ def analyze_transcript(
 
     analysis_dir.mkdir(parents=True, exist_ok=True)
     result = run_analysis(video, transcript, settings)
-    analysis_path.write_text(
-        json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    atomic_write_json(analysis_path, result.to_dict())
     return result
 
 

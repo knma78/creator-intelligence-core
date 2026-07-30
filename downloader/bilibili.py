@@ -9,6 +9,7 @@ from typing import Any
 
 from config import SETTINGS, Settings
 from downloader.bilibili_common import apply_yt_dlp_auth_options, humanize_bilibili_error
+from infrastructure.atomic_io import atomic_write_json
 from models import Video
 
 logger = logging.getLogger(__name__)
@@ -203,10 +204,7 @@ class BilibiliDownloader:
     def _save_metadata(self, video: Video) -> None:
         metadata_path = self.settings.video_cache_dir / video.video_id / "metadata.json"
         video.metadata_path = metadata_path
-        metadata_path.write_text(
-            json.dumps(video.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        atomic_write_json(metadata_path, video.to_dict())
 
     def _video_from_info(
         self,

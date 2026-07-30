@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
+from infrastructure.atomic_io import atomic_write_json
 from intelligence.gap_analysis.api import run_gap_analysis
 from intelligence.gap_analysis.repository import normalize_ability_key
 
@@ -25,8 +26,7 @@ def read_json(path: Path, default: Any) -> Any:
 
 
 def write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(path, payload)
 
 
 def stable_id(*parts: str) -> str:

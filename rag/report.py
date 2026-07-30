@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
+from infrastructure.atomic_io import atomic_write_json, atomic_write_text
 from rag.knowledge_base import build_knowledge_base, search_knowledge_base
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ def generate_research_report(
     output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = output_dir / "report.md"
     json_path = output_dir / "report.json"
-    markdown_path.write_text(report_markdown, encoding="utf-8")
+    atomic_write_text(markdown_path, report_markdown)
 
     payload = {
         "query": query,
@@ -55,7 +56,7 @@ def generate_research_report(
         "sources": [_source_summary(item) for item in evidence],
         "raw_llm_result": raw_llm_result,
     }
-    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(json_path, payload)
     return {**payload, "markdown_path": markdown_path, "json_path": json_path}
 
 

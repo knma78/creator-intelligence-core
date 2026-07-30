@@ -12,6 +12,7 @@ from analyzer.scenes import analyze_video_scenes
 from analyzer.title_stats import analyze_title_stats
 from config import SETTINGS, Settings
 from downloader.comments import fetch_bilibili_comments
+from infrastructure.atomic_io import atomic_write_json, atomic_write_text
 from models import AnalysisResult, Transcript, Video
 
 
@@ -50,8 +51,8 @@ def enrich_video(
         ),
     }
 
-    (output_dir / "v3.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    (output_dir / "v3.md").write_text(_build_v3_markdown(payload), encoding="utf-8")
+    atomic_write_json(output_dir / "v3.json", payload)
+    atomic_write_text(output_dir / "v3.md", _build_v3_markdown(payload))
     _copy_cover_if_exists(cover_analysis, output_dir)
     return payload
 

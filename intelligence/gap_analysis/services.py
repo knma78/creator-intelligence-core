@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
+from infrastructure.atomic_io import atomic_write_json
 
 from .models import AbilityDefinition, AbilityEvidence, KnowledgeDataset
 from .repository import LocalKnowledgeRepository, display_from_key, normalize_ability_key
@@ -596,7 +597,7 @@ class GapAnalysisService:
         self._write_json(history_path, payload)
 
     def _write_json(self, path: Path, payload: dict[str, Any]) -> None:
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write_json(path, payload)
 
     def _load_previous_latest(self) -> dict[str, Any] | None:
         path = self.output_dir / "latest.json"

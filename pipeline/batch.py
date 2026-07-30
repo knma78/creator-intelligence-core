@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -13,12 +14,83 @@ from downloader.social import is_douyin_profile_url
 from downloader.youtube import is_youtube_channel_url, normalize_youtube_channel_url
 from downloader.youtube_channel import YoutubeChannelCrawler, youtube_channel_cache_key
 from exporter.up_profile import export_up_profile
+from infrastructure.atomic_io import atomic_write_json
+from models import BATCH_RESULT_SCHEMA_VERSION
 from pipeline.run import (
     run_acquired_video_pipeline_details,
     run_video_pipeline_details,
 )
+from pipeline.registry import SourceHandler, SourceRegistry
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CreatorBatchContext:
+    settings: Settings
+    limit: int | None
+    progress: Callable[[str, int, str], None]
+
+
+@dataclass(frozen=True)
+class CreatorBatchSource:
+    platform: str
+    normalized: str
+    output_name: str
+    videos: list[dict[str, Any]]
+
+
+_CREATOR_SOURCE_REGISTRY: SourceRegistry[
+    CreatorBatchContext,
+    CreatorBatchSource,
+] | None = None
+
+
+def get_creator_source_registry() -> SourceRegistry[
+    CreatorBatchContext,
+    CreatorBatchSource,
+]:
+    global _CREATOR_SOURCE_REGISTRY
+    if _CREATOR_SOURCE_REGISTRY is None:
+        registry: SourceRegistry[CreatorBatchContext, CreatorBatchSource] = (
+            SourceRegistry("creator")
+        )
+        registry.register(
+            SourceHandler(
+                "douyin",
+                is_douyin_profile_url,
+                _resolve_douyin_creator_source,
+            )
+        )
+        registry.register(
+            SourceHandler(
+                "youtube",
+                is_youtube_channel_url,
+                _resolve_youtube_creator_source,
+            )
+        )
+        registry.register(
+            SourceHandler(
+                "bilibili",
+                lambda _source: True,
+                _resolve_bilibili_creator_source,
+            )
+        )
+        _CREATOR_SOURCE_REGISTRY = registry
+    return _CREATOR_SOURCE_REGISTRY
+
+
+def register_creator_source_handler(
+    handler: SourceHandler[CreatorBatchContext, CreatorBatchSource],
+    *,
+    prepend: bool = True,
+    replace: bool = False,
+) -> None:
+    get_creator_source_registry().register(
+        handler,
+        prepend=prepend,
+        replace=replace,
+    )
 
 
 def run_up_pipeline(
@@ -56,41 +128,14 @@ def _run_up_pipeline(
         if progress_callback:
             progress_callback(stage, percent, message)
 
-    if is_douyin_profile_url(source):
-        platform = "douyin"
-        progress("抖音主页", 18, "正在解析抖音创作者主页。")
-        normalized = extract_douyin_url(source)
-        progress("抖音主页", 22, "正在获取并缓存抖音创作者最新视频。")
-        douyin_adapter = DouyinAdapter(settings)
-        acquired_videos = douyin_adapter.download(
-            normalized,
-            limit or settings.batch_limit,
-        )
-        if douyin_adapter.last_warning:
-            progress("抖音主页", 24, douyin_adapter.last_warning)
-        videos = [
-            {
-                "source_url": video.source_url,
-                "title": video.title,
-                "acquired_video": video,
-            }
-            for video in acquired_videos
-        ]
-        output_name = f"creator_douyin_{_short_key(normalized)}"
-    elif is_youtube_channel_url(source):
-        platform = "youtube"
-        progress("频道列表", 18, "正在解析 YouTube 频道主页。")
-        normalized = normalize_youtube_channel_url(source)
-        progress("频道列表", 22, "正在获取 YouTube 频道最新视频列表。")
-        videos = YoutubeChannelCrawler(settings).fetch_video_sources(normalized, limit)
-        output_name = f"channel_youtube_{youtube_channel_cache_key(normalized)}"
-    else:
-        platform = "bilibili"
-        progress("UP列表", 18, "正在解析 B站 UP 主页、UID 或 UP 名。")
-        normalized = normalize_up_url(source)
-        progress("UP列表", 22, "正在获取 B站 UP 最新视频列表。")
-        videos = BilibiliUPCrawler(settings).fetch_video_sources(normalized, limit)
-        output_name = f"up_{up_cache_key(normalized)}"
+    batch_source = get_creator_source_registry().resolve(
+        source,
+        CreatorBatchContext(settings=settings, limit=limit, progress=progress),
+    )
+    platform = batch_source.platform
+    normalized = batch_source.normalized
+    videos = batch_source.videos
+    output_name = batch_source.output_name
 
     progress("创作者列表", 25, f"已获取 {len(videos)} 个视频，开始批量分析。")
     up_output_dir = settings.output_dir / output_name
@@ -191,6 +236,7 @@ def _run_up_pipeline(
         platform=platform,
     )
     return {
+        "schema_version": BATCH_RESULT_SCHEMA_VERSION,
         "platform": platform,
         "source": normalized,
         "profile_path": profile_path,
@@ -209,6 +255,75 @@ def _run_up_pipeline(
             for record in records
         ],
     }
+
+
+def _resolve_douyin_creator_source(
+    source: str,
+    context: CreatorBatchContext,
+) -> CreatorBatchSource:
+    context.progress("抖音主页", 18, "正在解析抖音创作者主页。")
+    normalized = extract_douyin_url(source)
+    context.progress("抖音主页", 22, "正在获取并缓存抖音创作者最新视频。")
+    adapter = DouyinAdapter(context.settings)
+    acquired_videos = adapter.download(
+        normalized,
+        context.limit or context.settings.batch_limit,
+    )
+    if adapter.last_warning:
+        context.progress("抖音主页", 24, adapter.last_warning)
+    return CreatorBatchSource(
+        platform="douyin",
+        normalized=normalized,
+        output_name=f"creator_douyin_{_short_key(normalized)}",
+        videos=[
+            {
+                "source_url": video.source_url,
+                "title": video.title,
+                "acquired_video": video,
+            }
+            for video in acquired_videos
+        ],
+    )
+
+
+def _resolve_youtube_creator_source(
+    source: str,
+    context: CreatorBatchContext,
+) -> CreatorBatchSource:
+    context.progress("频道列表", 18, "正在解析 YouTube 频道主页。")
+    normalized = normalize_youtube_channel_url(source)
+    context.progress("频道列表", 22, "正在获取 YouTube 频道最新视频列表。")
+    videos = YoutubeChannelCrawler(context.settings).fetch_video_sources(
+        normalized,
+        context.limit,
+    )
+    return CreatorBatchSource(
+        platform="youtube",
+        normalized=normalized,
+        output_name=(
+            f"channel_youtube_{youtube_channel_cache_key(normalized)}"
+        ),
+        videos=videos,
+    )
+
+
+def _resolve_bilibili_creator_source(
+    source: str,
+    context: CreatorBatchContext,
+) -> CreatorBatchSource:
+    context.progress("UP列表", 18, "正在解析 B站 UP 主页、UID 或 UP 名。")
+    normalized = normalize_up_url(source)
+    context.progress("UP列表", 22, "正在获取 B站 UP 最新视频列表。")
+    videos = BilibiliUPCrawler(context.settings).fetch_video_sources(
+        normalized,
+        context.limit,
+    )
+    return CreatorBatchSource(
+        platform="bilibili",
+        normalized=normalized,
+        output_name=f"up_{up_cache_key(normalized)}",
+        videos=videos,
+    )
 
 
 def _batch_progress(index: int, total: int, item_percent: int) -> int:
@@ -236,6 +351,7 @@ def _write_manifest(
     platform: str = "bilibili",
 ) -> None:
     payload = {
+        "schema_version": BATCH_RESULT_SCHEMA_VERSION,
         "platform": platform,
         "source": source,
         "seed_count": len(seeds),
@@ -253,4 +369,4 @@ def _write_manifest(
         "profile_path": str(profile_path) if profile_path else None,
         "knowledge_base_path": str(kb_path) if kb_path else None,
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(path, payload)

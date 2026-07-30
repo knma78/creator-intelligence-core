@@ -307,6 +307,7 @@ Windows 安装 `requirements.txt` 后会同时安装 CTranslate2 所需的 CUDA 
 - GPU 显存不足时依次降低批量大小，仍失败则自动回退 CPU。
 - 同一批任务复用模型，并在任务结束后释放模型显存。
 - 串行执行 Whisper，避免多个分析任务同时争抢 GPU。
+- Web UI 在模型加载和分段尚未产出时显示动态心跳，产出后显示真实音频时间进度、设备和运行时长。
 
 常用配置：
 
@@ -427,6 +428,14 @@ python -m rag.knowledge_base build
 python -m rag.knowledge_base search "开头方式"
 python -m rag.report "分析这个UP为什么播放高"
 ```
+
+## 兼容与扩展边界
+
+- Pipeline 和批量结果包含新增的 `schema_version`，原有字段保持不变。
+- 视频来源与创作者主页通过 `SourceRegistry` 注册；新增平台可以注册 Handler，无需修改主流程函数。
+- 字幕、分析缓存、批量清单、知识库索引和发现状态采用同目录临时文件加原子替换写入。
+- `Settings()` 在创建时读取当前环境变量；`load_settings(reload_env=True)` 可显式重新加载 `.env`。
+- 旧的 `acquire_video()`、`run_video_pipeline_details()`、`run_up_pipeline()` 和 Web API 路径保持兼容。
 
 ## 开源版数据边界
 

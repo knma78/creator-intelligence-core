@@ -8,6 +8,7 @@ import mimetypes
 import os
 import socket
 import threading
+import time
 import traceback
 import uuid
 import webbrowser
@@ -50,7 +51,8 @@ logger = logging.getLogger(__name__)
 
 WEB_ROOT = Path(__file__).resolve().parent
 STATIC_ROOT = WEB_ROOT / "static"
-APP_VERSION = "2026.07.28-reference-console-ui.2"
+APP_VERSION = "2026.07.30-progress-contracts.1"
+JOB_SCHEMA_VERSION = "1.0"
 
 
 class JobStore:
@@ -61,6 +63,7 @@ class JobStore:
     def create(self, payload: dict[str, Any]) -> dict[str, Any]:
         job_id = uuid.uuid4().hex[:12]
         job = {
+            "schema_version": JOB_SCHEMA_VERSION,
             "id": job_id,
             "status": "queued",
             "progress": 0,
@@ -70,6 +73,8 @@ class JobStore:
             "payload": payload,
             "result": None,
             "error": None,
+            "revision": 0,
+            "updated_at": time.time(),
         }
         with self._lock:
             self._jobs[job_id] = job
@@ -93,6 +98,8 @@ class JobStore:
                     job["logs"].append(value)
                 else:
                     job[key] = value
+            job["revision"] = int(job.get("revision", 0)) + 1
+            job["updated_at"] = time.time()
 
 
 class AppState:
@@ -111,11 +118,26 @@ def _update_job_progress(
     updates: dict[str, Any] = {
         "stage": stage,
         "progress": progress,
-        "log": str(message),
     }
     detail = getattr(message, "progress_meta", None)
     if isinstance(detail, dict):
-        updates["progress_detail"] = detail
+        updates["progress_detail"] = dict(detail)
+        if not detail.get("heartbeat"):
+            updates["log"] = str(message)
+    elif "Whisper" in stage:
+        updates["progress_detail"] = {
+            "type": "whisper",
+            "state": "preparing",
+            "phase_percent": None,
+            "processed_seconds": None,
+            "duration_seconds": None,
+            "elapsed_seconds": None,
+            "heartbeat": False,
+        }
+        updates["log"] = str(message)
+    else:
+        updates["progress_detail"] = None
+        updates["log"] = str(message)
     state.jobs.update(job_id, **updates)
 
 
@@ -133,6 +155,7 @@ def create_handler(state: AppState):
                     {
                         "ok": True,
                         "version": APP_VERSION,
+                        "api_schema_version": JOB_SCHEMA_VERSION,
                         "features": {
                             "up_advisor": True,
                             "gap_analysis": True,
@@ -463,6 +486,7 @@ def create_handler(state: AppState):
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
 
@@ -478,6 +502,7 @@ def create_handler(state: AppState):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.end_headers()
             self.wfile.write(body)
 

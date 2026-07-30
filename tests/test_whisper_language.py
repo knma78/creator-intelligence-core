@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from config import Settings
 from models import Video
@@ -12,6 +14,7 @@ from processor.whisper import (
     WhisperExecution,
     WhisperProgressMessage,
     _transcribe_attempt,
+    _whisper_progress_heartbeat,
 )
 
 
@@ -92,6 +95,30 @@ class WhisperLanguageTests(unittest.TestCase):
         self.assertEqual(
             progress_messages[-1].progress_meta["device"],
             "cpu",
+        )
+
+    def test_progress_heartbeat_emits_while_waiting_for_segments(self) -> None:
+        events = []
+        with patch("processor.whisper._PROGRESS_HEARTBEAT_SECONDS", 0.01):
+            with _whisper_progress_heartbeat(
+                lambda stage, percent, message: events.append(
+                    (stage, percent, message)
+                ),
+                _execution(),
+                "zh",
+                30,
+            ):
+                time.sleep(0.04)
+
+        heartbeat_messages = [
+            message
+            for _stage, _percent, message in events
+            if message.progress_meta["heartbeat"]
+        ]
+        self.assertTrue(heartbeat_messages)
+        self.assertGreaterEqual(
+            heartbeat_messages[-1].progress_meta["elapsed_seconds"],
+            0,
         )
 
 

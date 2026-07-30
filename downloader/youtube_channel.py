@@ -11,6 +11,7 @@ from typing import Any, Iterable
 from config import SETTINGS, Settings
 from downloader.youtube import is_youtube_channel_url, normalize_youtube_channel_url
 from downloader.yt_dlp_common import apply_yt_dlp_options
+from infrastructure.atomic_io import atomic_write_json
 
 
 logger = logging.getLogger(__name__)
@@ -84,10 +85,7 @@ class YoutubeChannelCrawler:
             "videos": videos,
         }
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        atomic_write_json(cache_path, payload)
         return videos
 
     def _extract_channel_info(self, source: str, limit: int) -> dict[str, Any]:

@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 
 from config import SETTINGS, Settings, ensure_directories
+from infrastructure.atomic_io import atomic_write_json, atomic_write_text
 from models import Video
 
 
@@ -200,7 +201,8 @@ class DouyinAdapter:
         job_dir.mkdir(parents=True, exist_ok=True)
         media_dir.mkdir(parents=True, exist_ok=True)
         config_path = job_dir / "config.yml"
-        config_path.write_text(
+        atomic_write_text(
+            config_path,
             yaml.safe_dump(
                 self._adapter_config(
                     normalized,
@@ -210,7 +212,6 @@ class DouyinAdapter:
                 allow_unicode=True,
                 sort_keys=False,
             ),
-            encoding="utf-8",
         )
 
         timed_out = False
@@ -445,10 +446,7 @@ class DouyinAdapter:
         metadata_dir.mkdir(parents=True, exist_ok=True)
         metadata_path = metadata_dir / "metadata.json"
         video.metadata_path = metadata_path
-        metadata_path.write_text(
-            json.dumps(video.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        atomic_write_json(metadata_path, video.to_dict())
 
 
 def _load_netscape_cookies(path: Path) -> dict[str, str]:

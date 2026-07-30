@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from infrastructure.atomic_io import atomic_write_json, atomic_write_text
 from models import Transcript, TranscriptSegment
 
 TIMING_RE = re.compile(
@@ -50,20 +51,17 @@ def write_transcript_files(
     srt_path = output_dir / "subtitle.srt"
     json_path = output_dir / "subtitle.json"
 
-    text_path.write_text(text, encoding="utf-8")
-    srt_path.write_text(segments_to_srt(segments), encoding="utf-8")
-    json_path.write_text(
-        json.dumps(
-            {
-                "video_id": video_id,
-                "source": source,
-                "text": text,
-                "segments": [segment.to_dict() for segment in segments],
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
+    atomic_write_text(text_path, text)
+    atomic_write_text(srt_path, segments_to_srt(segments))
+    atomic_write_json(
+        json_path,
+        {
+            "schema_version": "1.0",
+            "video_id": video_id,
+            "source": source,
+            "text": text,
+            "segments": [segment.to_dict() for segment in segments],
+        },
     )
 
     return Transcript(

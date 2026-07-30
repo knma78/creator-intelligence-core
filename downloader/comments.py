@@ -7,6 +7,7 @@ from typing import Any
 
 from config import SETTINGS, Settings
 from downloader.bilibili_common import bilibili_headers, load_bilibili_cookie_dict
+from infrastructure.atomic_io import atomic_write_json
 from models import Video
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def fetch_bilibili_comments(
 
     payload = _fetch_comments(video, limit)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(cache_path, payload)
     return payload
 
 

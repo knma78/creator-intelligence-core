@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
+from infrastructure.atomic_io import atomic_write_json
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ def build_vector_knowledge_base(
         "embedding_model": settings.sentence_transformer_model,
         "lexical_index_path": str(lexical_index_path.resolve()),
     }
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(manifest_path, manifest)
     return manifest_path
 
 

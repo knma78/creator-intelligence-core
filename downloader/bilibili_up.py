@@ -18,6 +18,7 @@ from downloader.bilibili_common import (
     humanize_bilibili_error,
     sign_wbi_params,
 )
+from infrastructure.atomic_io import atomic_write_json
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class BilibiliUPCrawler:
 
         payload = {"source": source, "limit": limit, "videos": videos}
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write_json(cache_path, payload)
         return videos
 
     def _fetch_video_list(self, source: str, limit: int) -> list[dict[str, Any]]:
@@ -260,7 +261,7 @@ def resolve_up_name(name: str, settings: Settings = SETTINGS) -> dict[str, Any] 
     best_match = _pick_best_user_match(name, candidates)
     payload = {"name": name, "best_match": best_match, "candidates": candidates[:10]}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(cache_path, payload)
     return best_match
 
 

@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ _SESSION_COUNT = 0
 _DLL_DIRECTORY_HANDLES: list[Any] = []
 _CONFIGURED_DLL_DIRECTORIES: set[str] = set()
 _LANGUAGE_FROM_SETTINGS = object()
+_PROGRESS_HEARTBEAT_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,8 @@ class WhisperProgressMessage(str):
         detected_language: str = "",
         processed_seconds: float | None = None,
         duration_seconds: float | None = None,
+        elapsed_seconds: float | None = None,
+        heartbeat: bool = False,
     ):
         value = str.__new__(cls, text)
         value.progress_meta = {
@@ -81,6 +85,8 @@ class WhisperProgressMessage(str):
             "detected_language": detected_language,
             "processed_seconds": processed_seconds,
             "duration_seconds": duration_seconds,
+            "elapsed_seconds": elapsed_seconds,
+            "heartbeat": heartbeat,
         }
         return value
 
@@ -172,6 +178,7 @@ def _transcribe_with_faster_whisper(
 ) -> Transcript:
     with _TRANSCRIPTION_LOCK:
         execution, _diagnostics = _resolve_execution(settings)
+        active_execution = execution
         _report_execution(execution, settings, progress_callback)
         try:
             segments = _run_faster_whisper(
@@ -187,6 +194,7 @@ def _transcribe_with_faster_whisper(
             logger.warning("GPU Whisper failed; retrying on CPU: %s", exc)
             _drop_cached_execution(settings, execution)
             fallback = _cpu_execution(settings, f"GPU运行失败，已回退CPU：{exc}")
+            active_execution = fallback
             if progress_callback:
                 progress_callback(
                     "Whisper回退",
@@ -214,7 +222,7 @@ def _transcribe_with_faster_whisper(
                 "Whisper 识别完成，正在写入字幕文件。",
                 phase_percent=100,
                 state="writing",
-                execution=execution,
+                execution=active_execution,
             ),
         )
     return write_transcript_files(segments, output_dir, video_id, "whisper")
@@ -294,42 +302,100 @@ def _transcribe_attempt(
     detected_language = str(getattr(info, "language", "") or language or "auto")
     duration = float(getattr(info, "duration", 0) or 0)
     logger.info("Whisper language: requested=%s detected=%s", language or "auto", detected_language)
-    if progress_callback:
+    segments = []
+    last_reported = 56
+    with _whisper_progress_heartbeat(
+        progress_callback,
+        execution,
+        detected_language,
+        duration,
+    ) as report_progress:
+        for segment in segments_iter:
+            end = float(segment.end)
+            segments.append(_segment_from_values(float(segment.start), end, segment.text))
+            if duration > 0:
+                percent = min(78, 56 + int((end / duration) * 22))
+                if percent >= last_reported + 2:
+                    last_reported = percent
+                    report_progress(end)
+    return segments
+
+
+@contextmanager
+def _whisper_progress_heartbeat(
+    progress_callback: Callable[[str, int, str], None] | None,
+    execution: WhisperExecution,
+    detected_language: str,
+    duration_seconds: float,
+) -> Iterator[Callable[[float], None]]:
+    if not progress_callback:
+        yield lambda _processed_seconds: None
+        return
+
+    stop_event = threading.Event()
+    state_lock = threading.Lock()
+    started_at = time.monotonic()
+    state = {"processed_seconds": 0.0}
+
+    def emit(*, heartbeat: bool) -> None:
+        with state_lock:
+            processed = float(state["processed_seconds"])
+        elapsed = max(0.0, time.monotonic() - started_at)
+        phase_percent = (
+            min(100.0, (processed / duration_seconds) * 100)
+            if duration_seconds > 0 and processed > 0
+            else 0.0
+        )
+        overall_percent = min(78, 56 + int((phase_percent / 100) * 22))
+        if processed > 0 and duration_seconds > 0:
+            text = (
+                f"Whisper 识别中：{processed:.0f}/{duration_seconds:.0f} 秒"
+            )
+        else:
+            text = f"Whisper 正在识别音频，已运行 {elapsed:.0f} 秒。"
         progress_callback(
             "Whisper识别",
-            57,
+            max(57, overall_percent),
             WhisperProgressMessage(
-                f"Whisper 识别语言：{detected_language}。",
-                phase_percent=0,
+                text,
+                phase_percent=phase_percent if processed > 0 else None,
                 state="transcribing",
                 execution=execution,
                 detected_language=detected_language,
-                duration_seconds=duration,
+                processed_seconds=processed if processed > 0 else None,
+                duration_seconds=duration_seconds if duration_seconds > 0 else None,
+                elapsed_seconds=elapsed,
+                heartbeat=heartbeat,
             ),
         )
-    segments = []
-    last_reported = 56
-    for segment in segments_iter:
-        end = float(segment.end)
-        segments.append(_segment_from_values(float(segment.start), end, segment.text))
-        if progress_callback and duration > 0:
-            percent = min(78, 56 + int((end / duration) * 22))
-            if percent >= last_reported + 2:
-                last_reported = percent
-                progress_callback(
-                    "Whisper识别",
-                    percent,
-                    WhisperProgressMessage(
-                        f"Whisper 识别中：{end:.0f}/{duration:.0f} 秒",
-                        phase_percent=(end / duration) * 100,
-                        state="transcribing",
-                        execution=execution,
-                        detected_language=detected_language,
-                        processed_seconds=end,
-                        duration_seconds=duration,
-                    ),
-                )
-    return segments
+
+    def heartbeat_loop() -> None:
+        while not stop_event.wait(_PROGRESS_HEARTBEAT_SECONDS):
+            try:
+                emit(heartbeat=True)
+            except Exception:
+                logger.exception("Whisper progress heartbeat callback failed")
+
+    def report(processed_seconds: float) -> None:
+        with state_lock:
+            state["processed_seconds"] = max(
+                float(state["processed_seconds"]),
+                processed_seconds,
+            )
+        emit(heartbeat=False)
+
+    emit(heartbeat=False)
+    thread = threading.Thread(
+        target=heartbeat_loop,
+        name="whisper-progress-heartbeat",
+        daemon=True,
+    )
+    thread.start()
+    try:
+        yield report
+    finally:
+        stop_event.set()
+        thread.join(timeout=max(0.2, _PROGRESS_HEARTBEAT_SECONDS * 2))
 
 
 def _get_or_load_runtime(

@@ -73,6 +73,7 @@ const clockLabel = document.getElementById("clockLabel");
 
 let activeJobId = null;
 let pollTimer = null;
+let pollInFlight = false;
 let advisorAvailable = false;
 let gapAvailable = false;
 let discoveryAvailable = false;
@@ -521,19 +522,28 @@ function watchJob(jobId) {
 }
 
 async function pollJob() {
-  if (!activeJobId) return;
-  const response = await fetch(`/api/jobs/${activeJobId}`);
-  const job = await response.json();
-  if (!response.ok) {
-    clearInterval(pollTimer);
-    setBadge("failed", "任务丢失");
-    return;
-  }
-  renderJob(job);
-  if (job.status === "done" || job.status === "failed") {
-    clearInterval(pollTimer);
-    startButton.disabled = false;
-    loadHistory();
+  if (!activeJobId || pollInFlight) return;
+  pollInFlight = true;
+  try {
+    const response = await fetch(`/api/jobs/${activeJobId}`, {
+      cache: "no-store",
+    });
+    const job = await response.json();
+    if (!response.ok) {
+      clearInterval(pollTimer);
+      setBadge("failed", "任务丢失");
+      return;
+    }
+    renderJob(job);
+    if (job.status === "done" || job.status === "failed") {
+      clearInterval(pollTimer);
+      startButton.disabled = false;
+      loadHistory();
+    }
+  } catch (error) {
+    setBadge("running", "连接恢复中");
+  } finally {
+    pollInFlight = false;
   }
 }
 
@@ -1299,17 +1309,25 @@ function setProgress(value, stage = "") {
 }
 
 function renderWhisperProgress(job) {
-  const detail = job.progress_detail;
   const stage = String(job.stage || "");
   const isWhisperStage = stage.includes("Whisper")
     || stage.includes("字幕写入");
-  if (!detail || detail.type !== "whisper" || !isWhisperStage) {
+  if (!isWhisperStage) {
     whisperProgress.hidden = true;
     return;
   }
+  const detail = job.progress_detail?.type === "whisper"
+    ? job.progress_detail
+    : {
+        type: "whisper",
+        state: "preparing",
+        phase_percent: null,
+        device: whisperRuntime?.device || "unknown",
+      };
 
   whisperProgress.hidden = false;
   const stateLabels = {
+    preparing: "Whisper 正在准备",
     loading: "Whisper 模型加载中",
     transcribing: "Whisper 音频识别中",
     retrying: "Whisper 显存保护重试",
@@ -1349,10 +1367,18 @@ function renderWhisperProgress(job) {
 
   const processed = Number(detail.processed_seconds);
   const duration = Number(detail.duration_seconds);
+  const elapsed = Number(detail.elapsed_seconds);
+  const languageSuffix = detail.detected_language
+    ? ` · 语言 ${detail.detected_language}`
+    : "";
   if (Number.isFinite(processed) && Number.isFinite(duration) && duration > 0) {
     whisperProgressTime.textContent =
       `${formatDuration(processed)} / ${formatDuration(duration)}`
-      + (detail.detected_language ? ` · 语言 ${detail.detected_language}` : "");
+      + (Number.isFinite(elapsed) ? ` · 已运行 ${formatDuration(elapsed)}` : "")
+      + languageSuffix;
+  } else if (Number.isFinite(elapsed)) {
+    whisperProgressTime.textContent =
+      `已运行 ${formatDuration(elapsed)}${languageSuffix}`;
   } else if (detail.detected_language) {
     whisperProgressTime.textContent = `识别语言：${detail.detected_language}`;
   } else {

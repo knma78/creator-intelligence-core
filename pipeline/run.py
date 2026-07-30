@@ -8,7 +8,7 @@ from pipeline.acquire import acquire_video
 from pipeline.analyze import analyze_transcript
 from pipeline.export import export_results
 from pipeline.process import process_video
-from models import Video
+from models import Video, build_pipeline_result
 
 
 def run_video_pipeline(source: str, settings: Settings = SETTINGS, enrich_v3: bool = False) -> Path:
@@ -104,10 +104,10 @@ def _process_acquired_video(
         progress("V3增强", 94, "正在补充封面、评论、标题统计和扩展分析。")
         enrichment = enrich_video(video, transcript, analysis, settings)
 
-    return {
-        "video": video,
-        "transcript": transcript,
-        "analysis": analysis,
-        "markdown_path": markdown_path,
-        "enrichment": enrichment,
-    }
+    return build_pipeline_result(
+        video=video,
+        transcript=transcript,
+        analysis=analysis,
+        markdown_path=markdown_path,
+        enrichment=enrichment,
+    )
