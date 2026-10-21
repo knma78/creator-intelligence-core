@@ -863,7 +863,7 @@ def _build_gaps(payload: dict[str, Any], output_root: Path) -> dict[str, list[st
     priority_actions.extend(
         [
             "补评论抓取或评论摘要，建立观众反馈知识层。",
-            "补封面/画面层分析，尤其是毕导、影视飓风、食贫道这类视觉权重较高的样本。",
+            "补封面/画面层分析，优先处理视觉表达权重较高且已获授权的本地样本。",
             "用真实选题跑一轮模板调用测试，优先验证 Hook、转场、高潮、结尾和脚本结构模板。",
         ]
     )

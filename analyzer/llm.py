@@ -3,9 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, Callable
 
 from config import Settings
+from infrastructure.cancellation import (
+    JobCancelledError,
+    raise_if_cancelled,
+    run_cancellable_call,
+)
 from models import AnalysisResult, Transcript, Video
 
 logger = logging.getLogger(__name__)
@@ -16,7 +21,10 @@ def analyze_with_llm(
     transcript: Transcript,
     baseline: AnalysisResult,
     settings: Settings,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> AnalysisResult | None:
+    raise_if_cancelled(cancel_requested)
     if not settings.llm_api_key:
         return None
 
@@ -36,21 +44,44 @@ def analyze_with_llm(
 
     prompt = _build_prompt(video, transcript, baseline, settings.llm_max_chars)
     try:
-        response = client.chat.completions.create(
-            model=settings.llm_model,
-            temperature=0.2,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是一个短视频内容研究分析师。只输出可解析的 JSON。",
-                },
-                {"role": "user", "content": prompt},
-            ],
+        response = run_cancellable_call(
+            lambda: client.chat.completions.create(
+                model=settings.llm_model,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                stream=True,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "你是一个短视频内容研究分析师。只输出可解析的 JSON。",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            ),
+            cancel_requested,
+            on_cancel=getattr(client, "close", None),
         )
-        content = response.choices[0].message.content or "{}"
+        chunks: list[str] = []
+        try:
+            for chunk in response:
+                raise_if_cancelled(cancel_requested)
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                delta = getattr(choices[0], "delta", None)
+                content = getattr(delta, "content", None)
+                if content:
+                    chunks.append(str(content))
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
+        raise_if_cancelled(cancel_requested)
+        content = "".join(chunks) or "{}"
         data = _loads_json(content)
         return _result_from_llm_dict(video.video_id, video.title, data, baseline)
+    except JobCancelledError:
+        raise
     except Exception as exc:  # pragma: no cover - network/API behavior
         logger.warning("LLM analysis failed, fallback to local analysis: %s", exc)
         return None

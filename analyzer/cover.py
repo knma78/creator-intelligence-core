@@ -2,15 +2,30 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from config import SETTINGS, Settings
+from infrastructure.cancellation import (
+    JobCancelledError,
+    raise_if_cancelled,
+)
 from models import Video
 from processor.ocr import extract_text_from_image
+from .visual_semantics import analyze_image_semantics
 
 
-def analyze_cover(video: Video, settings: Settings = SETTINGS) -> dict[str, Any]:
-    image_path = download_cover(video, settings)
+def analyze_cover(
+    video: Video,
+    settings: Settings = SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
+) -> dict[str, Any]:
+    raise_if_cancelled(cancel_requested)
+    image_path = download_cover(
+        video,
+        settings,
+        cancel_requested=cancel_requested,
+    )
     if not image_path:
         return {"status": "skipped", "reason": "missing cover url or download dependency", "ocr": None}
 
@@ -20,11 +35,24 @@ def analyze_cover(video: Video, settings: Settings = SETTINGS) -> dict[str, Any]
         "cover_url": video.cover,
     }
     analysis.update(_image_stats(image_path))
+    raise_if_cancelled(cancel_requested)
     analysis["ocr"] = extract_text_from_image(image_path)
+    raise_if_cancelled(cancel_requested)
+    analysis["visual_semantics"] = analyze_image_semantics(
+        image_path,
+        settings,
+        cancel_requested=cancel_requested,
+    )
     return analysis
 
 
-def download_cover(video: Video, settings: Settings = SETTINGS) -> Path | None:
+def download_cover(
+    video: Video,
+    settings: Settings = SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
+) -> Path | None:
+    raise_if_cancelled(cancel_requested)
     if not video.cover:
         return None
     cover_dir = settings.covers_cache_dir / video.video_id
@@ -41,17 +69,34 @@ def download_cover(video: Video, settings: Settings = SETTINGS) -> Path | None:
     except ImportError:
         return None
 
+    partial_path = image_path.with_suffix(image_path.suffix + ".part")
+    partial_path.unlink(missing_ok=True)
+    response = None
     try:
         response = requests.get(
             video.cover,
             headers={"User-Agent": "Mozilla/5.0 ContentResearch/1.0"},
             timeout=20,
+            stream=True,
         )
         response.raise_for_status()
-        image_path.write_bytes(response.content)
+        with partial_path.open("wb") as target:
+            for chunk in response.iter_content(chunk_size=256 * 1024):
+                raise_if_cancelled(cancel_requested)
+                if chunk:
+                    target.write(chunk)
+        raise_if_cancelled(cancel_requested)
+        partial_path.replace(image_path)
         return image_path
+    except JobCancelledError:
+        partial_path.unlink(missing_ok=True)
+        raise
     except Exception:
+        partial_path.unlink(missing_ok=True)
         return None
+    finally:
+        if response is not None:
+            response.close()
 
 
 def _image_stats(image_path: Path) -> dict[str, Any]:

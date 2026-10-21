@@ -1,0 +1,4 @@
+# Install in .venv-capcut only (Python 3.12). Preserve existing project dependencies.
+# Upstream adapter: MIT; see docs/capcut_workflow.md for the pinned source revision.
+mcp>=1.12,<2
+capcut-mcp @ git+https://github.com/nguyenph88/Media-Editor-MCP.git@1295a6a85cb5ae8e544ebf97dbe28c326b681981#subdirectory=packages/capcut-mcp

@@ -6,6 +6,8 @@
 
 ## V1.0 流程
 
+数据保护入口：**知识系统 → 数据保护**，支持本地校验备份、隔离恢复演练、可撤销索引隔离；人工复核绑定规则内容版本。范围及限制见 [数据保护说明](docs/data_protection.md)。
+
 ```text
 输入公开视频链接
   ↓
@@ -85,6 +87,11 @@ output/<视频ID>/
 
 Web UI 中选择“内容作品”，填写作品名称和类型，并在输入框中每行粘贴
 一个视频链接或 BV 号。多期节目或多集动漫会汇总为同一份作品画像。
+B站电影、番剧或综艺的 `bangumi/play/ss...`、`bangumi/media/md...`
+季页面也可以直接输入；自动模式会先展开为单集，再按批量数量逐条处理。
+媒体下载发生临时断线时会保留 `.part` 文件并自动重试，重新运行同一任务
+可继续下载。若网页或客户端通过受保护链路播放，但B站网页接口不向 yt-dlp
+返回媒体流，工具不会绕过平台保护；界面会直接显示原因。
 
 命令行也可分析单个作品视频：
 
@@ -200,6 +207,9 @@ output/v4_reports/<时间>_<问题>/
 - `Sentence Transformers + ChromaDB`：构建持久化语义向量索引，并与原 TF-IDF 结果做混合检索。
 - `PySceneDetect + OpenCV`：检测镜头切点、平均镜头时长和视觉节奏，写入 V3 分析。
 - `LangGraph`：按词法索引、向量索引、Creator KB、模板和项目报告的顺序编排完整知识库更新。
+- `DuckDB`：将每次视频、文本分析和 V3 增强结果写入 `cache/analytics/content_research.duckdb`，供跨视频 SQL 分析。
+- `OpenCLIP`：随 V3 对封面生成语义标签和归一化向量，用于相似封面、视觉风格和内容类型分析。
+- `librosa`：随 V3 提取 BPM、声音起点密度、静音占比、动态范围和频谱特征。
 
 构建语义向量库：
 
@@ -225,7 +235,7 @@ python main.py --search "人物动机与世界观如何衔接" --top-k 8
 python main.py --advanced-kb
 ```
 
-镜头和 spaCy 分析随 `--v3` 自动执行。没有本地视频文件时镜头分析会标记为跳过，不影响其余结果。
+镜头、spaCy、OpenCLIP 和 librosa 分析随 `--v3` 自动执行。没有本地视频文件、模型或可选依赖时，相应分析会标记为跳过或不可用，不影响其余结果。DuckDB 默认对所有成功完成的视频任务写入本地分析仓库。
 
 ## Creator Knowledge Base
 
@@ -252,6 +262,12 @@ python main.py --creator-search "反差信息缺口的观察、模式、效果�
 - `Rule`：基于 Pattern 形成的条件性创作假设，明确区分观察、推断和系统建议。
 
 规则会分别计算模式置信度、效果置信度和证据质量。播放、点赞和评论只作为结果代理变量；缺少留存、完播或受控对照时，不会写成因果结论。人工复核登记保存在 `rules/rule_reviews.json`，生成流程不会覆盖该文件。
+
+规则匹配只把能力加入按层级分类的候选池，不会强制调用。系统在同一层级内选择 Primary/Secondary Ability，再跨层组合为 Capability Plan。功能解释置信度与模式存在、因果效果分别记录；Agent 发现的新模式只能写入 Candidate Knowledge，不能直接修改 Validated Knowledge。
+
+```bash
+python main.py --capability-plan "存在反差和冲突，需要历史叙事与观点闭环"
+```
 
 完整字段和生命周期说明见 [`docs/creator_knowledge_schema.md`](docs/creator_knowledge_schema.md)。
 
@@ -311,11 +327,29 @@ logs/
 
 ## 安装
 
-1. 安装 Python 依赖：
+1. 安装 Python 依赖。原命令仍会安装完整能力：
 
 ```bash
 pip install -r requirements.txt
 ```
+
+也可以按用途安装，避免小说创作或基础 Web UI 被整套 GPU、向量库和视觉分析依赖绑定：
+
+```bash
+# 基础 Web、LLM、小说创作、报告和确定性视频分镜
+pip install -r requirements/core.txt
+
+# 再增加平台下载、登录和本地播放采集
+pip install -r requirements/acquisition.txt
+
+# 再增加 Whisper、OCR、OpenCLIP、ChromaDB、DuckDB 等研究能力
+pip install -r requirements/research-ml.txt
+
+# Windows NVIDIA GPU 运行库，仅在需要 GPU 时安装
+pip install -r requirements/gpu-windows.txt
+```
+
+这些分组是可组合安装入口；根目录 `requirements.txt` 保持完整安装兼容性。
 
 2. FFmpeg 可以通过系统 PATH、`.env` 里的 `FFMPEG_PATH`，或 `imageio-ffmpeg` 自动提供。
 
@@ -327,7 +361,7 @@ copy .env.example .env
 
 ### Whisper GPU 安全加速
 
-Windows 安装 `requirements.txt` 后会同时安装 CTranslate2 所需的 CUDA 12/cuDNN 9 运行库，不需要单独安装完整 CUDA Toolkit。默认配置会：
+Windows 安装完整 `requirements.txt` 或单独安装 `requirements/gpu-windows.txt` 后，会同时安装 CTranslate2 所需的 CUDA 12/cuDNN 9 运行库，不需要单独安装完整 CUDA Toolkit。默认配置会：
 
 - 检测 NVIDIA GPU、CUDA DLL、空闲显存和 GPU 占用率。
 - 资源充足时使用 `float16` GPU 批量识别；否则自动使用 `int8` CPU。
@@ -392,14 +426,20 @@ http://127.0.0.1:7860
 界面功能：
 
 - 自动判断多平台单视频、B站 UP、YouTube 频道或抖音创作者批量
+- 任务、进度和日志持久化到本地 SQLite；Web UI 重启后仍可查看历史，异常中断的运行任务会重新排队
+- 使用固定数量的本地 Worker 执行任务，避免每次请求创建一个不受控线程
 - 将一个或多条 B站视频按综艺、电影、动漫、纪录片或其他内容作品聚合蒸馏
 - 可开启 V3 增强
-- V3 使用 spaCy、RapidOCR、OpenCV 和 PySceneDetect 分析字幕、封面与镜头节奏
+- V3 使用 spaCy、RapidOCR、OpenCV、PySceneDetect、OpenCLIP 和 librosa 分析字幕、封面、镜头与声音节奏
 - 可快速更新词法索引，或用 LangGraph 完整更新知识系统
 - 完整更新包括 ChromaDB 语义向量库、创作者库、模板库、能力缺口和发现候选池
 - 查看任务状态、日志和输出文件
+- 在“视频生产”中直接粘贴中文文稿，先预览可审计分镜，再由本地既定程序完成旁白、字幕、标题/关键词/OCR/OpenCLIP 封面评分、FFmpeg/NVENC 合成和 QA；低置信度或损坏素材自动改用本地背景，运行时不依赖 Agent，现阶段明确定位为封面静帧式粗闭环
 - 使用关键词、语义向量或混合策略检索本地知识库
 - 生成 V4 AI研究报告
+- 在“小说创作”中直接调用本机 `novel-writing` Skill，执行故事设定、长篇大纲、章节创作、续写、改写、诊断和修订；支持简体中文、母语级美式英语和英式英语，英文模式保留中国网文推进与回报结构；支持实时字数/词数进度、任务取消及本地产物记录
+- 英文创作默认调用独立的 `native-english-fiction-review` Skill，按母语自然度、对白真实性、叙事清晰度、文化可理解性、美英地区一致性、朗读清晰度和网文机制保留度进行 100 分审稿；未通过时自动修订一次并复检
+- 英语确定性检查使用 Harper 官方 Windows CLI，并由项目内置的无依赖可读性模块计算 Flesch、Flesch-Kincaid、ARI、Coleman-Liau、Gunning Fog 和 SMOG；Harper 不可用时 UI 会明确显示 `NATIVE QA CORE`
 - 在“创作者发现”中查看能力搜索计划、添加候选、人工批准并启动分析；抖音候选可分析创作者主页或公开视频，小红书候选可分析公开视频样本
 - 在“UP抓取决策”中结合当前知识库判断下一批抓取方向
 
@@ -426,6 +466,21 @@ output/<视频ID>/
   subtitle.srt
   analysis.json
 ```
+
+英文小说任务输出到 `output/novel_writing/<时间戳>/`：
+
+```text
+result.md              # 终稿；自动修订启用时为修订后版本
+request.json           # 请求、模型、Skill 指纹和质检摘要
+original_draft.md      # 发生自动修订时保留的英文初稿
+native_review.md       # 面向人的中文质检报告
+native_review.json     # 七维评分、问题与确定性指标
+```
+
+运行 `powershell -ExecutionPolicy Bypass -File tools/Install-HarperCli.ps1` 可通过
+BITS 从 Harper 官方 GitHub Release 下载 Windows CLI，显示实时进度、保留断点并校验
+SHA-256。可读性指标完全由项目内置实现，不依赖 textstat、nltk 或 pyphen。
+Harper CLI 暂不可用时仍可进行独立 LLM 审稿、自动修订、地区拼写检查和可读性分析。
 
 缓存位置：
 
@@ -459,6 +514,12 @@ python -m rag.report "分析这个UP为什么播放高"
 
 ## 兼容与扩展边界
 
+小说创作与视频生产通过 `features` 组合层接入 Web 应用；Web 路由不再直接导入
+领域流水线。视频字幕、素材解析、运行时检测以及规则文档渲染也已从原单体模块中
+拆分。依赖方向和文件规模护栏见
+[`docs/domain_architecture.md`](docs/domain_architecture.md)。
+本机审查记录不随公开源码分发。
+
 - Pipeline 和批量结果包含新增的 `schema_version`，原有字段保持不变。
 - 视频来源与创作者主页通过 `SourceRegistry` 注册；新增平台可以注册 Handler，无需修改主流程函数。
 - 字幕、分析缓存、批量清单、知识库索引和发现状态采用同目录临时文件加原子替换写入。
@@ -476,9 +537,30 @@ Discovery、知识库接口、Web UI、配置模板和测试。运行时生成�
 - `cache/` 中的模型、转录缓存、向量索引和数据库
 - `output/` 中的分析报告、Creator Profile 和知识库内容
 - `logs/` 中的运行日志
+- `state/`、`backups/`、`restores/` 中的进度、复核记录与数据副本
+- 个人创作者名单、成片、旁白、分镜、演示文稿和已验证作品
+
+公开版本不预置个人创作者画像。需要时将
+`tools/creator_specs.example.json` 复制为本机忽略的 `tools/creator_specs.json`。
+完整隔离边界与发布检查见 [公开数据边界](docs/publication_boundary.md)。
 
 公开仓库不附带任何平台账号，也不绕过平台访问控制。使用者需要自行遵守平台条款、
 内容版权和所在地法律。
+
+## 采集契约与资源调度
+
+- 单视频流水线现在会生成正式的访问评估、采集计划、媒体产物和采集结果，
+  清单保存在 `cache/acquisitions/<platform>/<video_id>.json`。
+- 旧的 `acquire_video()` 接口保持兼容；需要完整状态时使用
+  `acquire_video_details()`。
+- 网络采集、FFmpeg、Whisper、OpenCLIP、场景检测和音频节奏分析通过统一资源
+  租约运行。默认 GPU 只允许一个模型族占用，并在 Whisper/OpenCLIP 切换时释放
+  上一个模型族。
+- 设计与配置详见
+  [`docs/acquisition_and_resource_scheduler.md`](docs/acquisition_and_resource_scheduler.md)。
+- B站任务可独立检查账号会员、内容要求、观看资格、官方字幕和媒体流；当观看
+  资格通过但没有可下载流时，可由用户明确授权 Windows WASAPI 本地播放采集。
+- 模块边界见 [`docs/domain_architecture.md`](docs/domain_architecture.md)。
 
 ## License
 

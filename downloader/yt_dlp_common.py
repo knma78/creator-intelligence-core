@@ -8,6 +8,7 @@ from downloader.platform_auth import (
     browser_cookie_spec,
     resolve_authorized_cookie_file,
 )
+from infrastructure.cancellation import yt_dlp_cancel_hook
 
 
 DEFAULT_HEADERS = {
@@ -26,6 +27,10 @@ def apply_yt_dlp_options(
     platform: str | None = None,
 ) -> dict[str, Any]:
     options.setdefault("http_headers", dict(DEFAULT_HEADERS))
+    progress_hooks = list(options.get("progress_hooks") or [])
+    if yt_dlp_cancel_hook not in progress_hooks:
+        progress_hooks.append(yt_dlp_cancel_hook)
+    options["progress_hooks"] = progress_hooks
     if settings.ffmpeg_path:
         options.setdefault("ffmpeg_location", str(settings.ffmpeg_path))
     if settings.yt_dlp_proxy:

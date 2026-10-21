@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "project_id": "synthetic-contract-test",
+  "canvas": {"width": 1280, "height": 720, "fps": 30},
+  "pages": [{
+    "id": "newton-01",
+    "title": "Synthetic fixture",
+    "component": {"name": "newton_orbit", "version": "1", "start_angle_deg": -60, "sweep_deg": 100},
+    "narration": {
+      "text": "aaaaaaaaaaaaa.bbbbbbbbbb.ccccccccccccc.dddddddddddddddddddd.",
+      "sha256": "5331a4612b93156f3638c769ead73dd00c011c70ff0eabe5daba9019d818129e",
+      "duration_ms": 28000,
+      "timing_kind": "draft",
+      "reviewer": "",
+      "audio": null,
+      "anchors": [
+        {"id": "velocity", "start_char": 0, "end_char": 14, "quote": "aaaaaaaaaaaaa.", "start_ms": 1000, "end_ms": 5000},
+        {"id": "gravity", "start_char": 14, "end_char": 25, "quote": "bbbbbbbbbb.", "start_ms": 5000, "end_ms": 10000},
+        {"id": "orbit", "start_char": 25, "end_char": 39, "quote": "ccccccccccccc.", "start_ms": 10000, "end_ms": 18000},
+        {"id": "conclusion", "start_char": 39, "end_char": 60, "quote": "dddddddddddddddddddd.", "start_ms": 20000, "end_ms": 27000}
+      ]
+    },
+    "actions": [
+      {"op": "reveal_velocity", "anchor": "velocity", "offset_ms": 0, "duration_ms": 0},
+      {"op": "reveal_gravity", "anchor": "gravity", "offset_ms": 0, "duration_ms": 0},
+      {"op": "orbit", "anchor": "orbit", "offset_ms": 0, "duration_ms": 6000},
+      {"op": "conclude", "anchor": "conclusion", "offset_ms": 0, "duration_ms": 0}
+    ],
+    "sources": ["https://example.invalid/synthetic-test-only"]
+  }]
+}

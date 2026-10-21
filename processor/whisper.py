@@ -15,6 +15,11 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from config import SETTINGS, Settings
+from infrastructure.cancellation import (
+    JobCancelledError,
+    raise_if_cancelled,
+)
+from infrastructure.resources import ResourceKind, get_resource_manager
 from models import Transcript
 from processor.subtitle import write_transcript_files
 
@@ -98,7 +103,10 @@ def transcribe_audio(
     settings: Settings = SETTINGS,
     progress_callback: Callable[[str, int, str], None] | None = None,
     language: str | None | object = _LANGUAGE_FROM_SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> Transcript:
+    raise_if_cancelled(cancel_requested)
     selected_language = (
         settings.whisper_language
         if language is _LANGUAGE_FROM_SETTINGS
@@ -106,24 +114,76 @@ def transcribe_audio(
     )
     engine = settings.whisper_engine.strip().lower()
     if engine in {"faster-whisper", "faster_whisper"}:
-        return _transcribe_with_faster_whisper(
-            audio_path,
-            output_dir,
-            video_id,
-            settings,
-            progress_callback,
-            selected_language,
+        execution, _diagnostics = _resolve_execution(settings)
+        resource_kind = (
+            ResourceKind.GPU_INFERENCE
+            if execution.device == "cuda"
+            else ResourceKind.CPU_HEAVY
         )
+        manager = get_resource_manager(settings)
+        manager.register_gpu_family("whisper", release_whisper_models)
+        with manager.lease(
+            resource_kind,
+            owner=f"whisper:{video_id}",
+            family=(
+                "whisper"
+                if resource_kind is ResourceKind.GPU_INFERENCE
+                else None
+            ),
+            cancel_requested=cancel_requested,
+        ):
+            return _transcribe_with_faster_whisper(
+                audio_path,
+                output_dir,
+                video_id,
+                settings,
+                progress_callback,
+                selected_language,
+                execution,
+                cancel_requested,
+            )
     if engine in {"openai-whisper", "whisper"}:
-        return _transcribe_with_openai_whisper(
-            audio_path,
-            output_dir,
-            video_id,
-            settings,
-            progress_callback,
-            selected_language,
-        )
+        resource_kind = _openai_whisper_resource(settings)
+        manager = get_resource_manager(settings)
+        manager.register_gpu_family("whisper", release_whisper_models)
+        with manager.lease(
+            resource_kind,
+            owner=f"openai-whisper:{video_id}",
+            family=(
+                "whisper"
+                if resource_kind is ResourceKind.GPU_INFERENCE
+                else None
+            ),
+            cancel_requested=cancel_requested,
+        ):
+            return _transcribe_with_openai_whisper(
+                audio_path,
+                output_dir,
+                video_id,
+                settings,
+                progress_callback,
+                selected_language,
+                (
+                    "cuda"
+                    if resource_kind is ResourceKind.GPU_INFERENCE
+                    else "cpu"
+                ),
+                cancel_requested,
+            )
     raise ValueError(f"Unsupported WHISPER_ENGINE: {settings.whisper_engine}")
+
+
+def _openai_whisper_resource(settings: Settings) -> ResourceKind:
+    if settings.whisper_device.strip().lower() == "cpu":
+        return ResourceKind.CPU_HEAVY
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return ResourceKind.GPU_INFERENCE
+    except ImportError:
+        pass
+    return ResourceKind.CPU_HEAVY
 
 
 @contextmanager
@@ -175,9 +235,11 @@ def _transcribe_with_faster_whisper(
     settings: Settings,
     progress_callback: Callable[[str, int, str], None] | None = None,
     language: str | None = None,
+    execution_override: WhisperExecution | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> Transcript:
     with _TRANSCRIPTION_LOCK:
-        execution, _diagnostics = _resolve_execution(settings)
+        execution = execution_override or _resolve_execution(settings)[0]
         active_execution = execution
         _report_execution(execution, settings, progress_callback)
         try:
@@ -187,7 +249,10 @@ def _transcribe_with_faster_whisper(
                 execution,
                 progress_callback,
                 language,
+                cancel_requested,
             )
+        except JobCancelledError:
+            raise
         except Exception as exc:
             if execution.device != "cuda" or not settings.whisper_gpu_fallback:
                 raise
@@ -212,8 +277,10 @@ def _transcribe_with_faster_whisper(
                 fallback,
                 progress_callback,
                 language,
+                cancel_requested,
             )
 
+    raise_if_cancelled(cancel_requested)
     if progress_callback:
         progress_callback(
             "字幕写入",
@@ -234,6 +301,7 @@ def _run_faster_whisper(
     execution: WhisperExecution,
     progress_callback: Callable[[str, int, str], None] | None,
     language: str | None,
+    cancel_requested: Callable[[], bool] | None = None,
 ):
     runtime = _get_or_load_runtime(settings, execution)
     batch_sizes = _batch_candidates(execution.batch_size)
@@ -248,6 +316,7 @@ def _run_faster_whisper(
                 batch_size,
                 progress_callback,
                 language,
+                cancel_requested,
             )
         except Exception as exc:
             last_error = exc
@@ -284,7 +353,9 @@ def _transcribe_attempt(
     batch_size: int,
     progress_callback: Callable[[str, int, str], None] | None,
     language: str | None,
+    cancel_requested: Callable[[], bool] | None = None,
 ):
+    raise_if_cancelled(cancel_requested)
     transcriber = runtime["batched"] if batch_size > 1 else runtime["model"]
     kwargs: dict[str, Any] = {
         "beam_size": max(1, settings.whisper_beam_size),
@@ -311,6 +382,7 @@ def _transcribe_attempt(
         duration,
     ) as report_progress:
         for segment in segments_iter:
+            raise_if_cancelled(cancel_requested)
             end = float(segment.end)
             segments.append(_segment_from_values(float(segment.start), end, segment.text))
             if duration > 0:
@@ -373,6 +445,8 @@ def _whisper_progress_heartbeat(
         while not stop_event.wait(_PROGRESS_HEARTBEAT_SECONDS):
             try:
                 emit(heartbeat=True)
+            except JobCancelledError:
+                return
             except Exception:
                 logger.exception("Whisper progress heartbeat callback failed")
 
@@ -705,7 +779,10 @@ def _transcribe_with_openai_whisper(
     settings: Settings,
     progress_callback: Callable[[str, int, str], None] | None = None,
     language: str | None = None,
+    device_override: str | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> Transcript:
+    raise_if_cancelled(cancel_requested)
     try:
         import whisper
     except ImportError as exc:
@@ -724,7 +801,11 @@ def _transcribe_with_openai_whisper(
                 state="loading",
             ),
         )
-    model = whisper.load_model(settings.whisper_model)
+    model = whisper.load_model(
+        settings.whisper_model,
+        device=device_override,
+    )
+    raise_if_cancelled(cancel_requested)
     if progress_callback:
         progress_callback(
             "Whisper识别",
@@ -739,6 +820,7 @@ def _transcribe_with_openai_whisper(
     if language:
         transcribe_options["language"] = language
     result = model.transcribe(str(audio_path), **transcribe_options)
+    raise_if_cancelled(cancel_requested)
     segments = [
         _segment_from_values(float(item["start"]), float(item["end"]), item["text"])
         for item in result.get("segments", [])

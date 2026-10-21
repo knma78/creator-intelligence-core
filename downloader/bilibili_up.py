@@ -4,7 +4,6 @@ import hashlib
 import json
 import logging
 import re
-import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -19,6 +18,10 @@ from downloader.bilibili_common import (
     sign_wbi_params,
 )
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import (
+    raise_if_cancelled,
+    sleep_with_cancellation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +56,10 @@ def up_cache_key(source: str) -> str:
 class BilibiliUPCrawler:
     def __init__(self, settings: Settings = SETTINGS):
         self.settings = settings
+        self.last_list_complete = False
 
     def fetch_video_sources(self, source: str, limit: int | None = None) -> list[dict[str, Any]]:
+        self.last_list_complete = False
         source = resolve_up_source(source, self.settings)
         limit = limit or self.settings.batch_limit
         cache_path = self._cache_path(source)
@@ -66,6 +71,10 @@ class BilibiliUPCrawler:
             stale_entries = entries if isinstance(entries, list) else []
             if stale_entries and len(stale_entries) >= limit:
                 logger.info("Using cached UP video list: %s", cache_path)
+                self.last_list_complete = (
+                    bool(cached.get("complete"))
+                    and len(stale_entries) <= limit
+                )
                 return stale_entries[:limit]
 
         videos = self._fetch_video_list(source, limit)
@@ -78,7 +87,13 @@ class BilibiliUPCrawler:
                 "Try again later, or use the Web UI to sign in to Bilibili again."
             )
 
-        payload = {"source": source, "limit": limit, "videos": videos}
+        self.last_list_complete = len(videos) < limit
+        payload = {
+            "source": source,
+            "limit": limit,
+            "complete": self.last_list_complete,
+            "videos": videos,
+        }
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_json(cache_path, payload)
         return videos
@@ -91,7 +106,7 @@ class BilibiliUPCrawler:
             if api_videos == []:
                 break
             logger.info("Bilibili API returned no list, retrying API-first fetch: %s", attempt + 1)
-            time.sleep(1 + attempt)
+            sleep_with_cancellation(1 + attempt)
 
         ytdlp_videos = self._fetch_with_ytdlp(source, limit)
         if ytdlp_videos:
@@ -120,6 +135,7 @@ class BilibiliUPCrawler:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(source, download=False)
         except Exception as exc:
+            raise_if_cancelled(None)
             logger.info("yt-dlp UP list fallback failed: %s", humanize_bilibili_error(exc))
             return []
 
@@ -196,7 +212,7 @@ class BilibiliUPCrawler:
                 )
                 if response.status_code == 412:
                     logger.info("Bilibili API page fetch blocked with HTTP 412 on attempt %s", attempt + 1)
-                    time.sleep(1 + attempt)
+                    sleep_with_cancellation(1 + attempt)
                     continue
 
                 response.raise_for_status()
@@ -208,12 +224,12 @@ class BilibiliUPCrawler:
                         attempt + 1,
                         payload.get("message"),
                     )
-                    time.sleep(1 + attempt)
+                    sleep_with_cancellation(1 + attempt)
                     continue
                 return payload
             except Exception as exc:
                 logger.info("Bilibili API page fetch failed on attempt %s: %s", attempt + 1, exc)
-                time.sleep(1 + attempt)
+                sleep_with_cancellation(1 + attempt)
         return None
 
 

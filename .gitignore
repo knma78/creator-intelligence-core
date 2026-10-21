@@ -15,6 +15,47 @@
 /cache/
 /output/
 /logs/
+/state/
+/backups/
+/restores/
+/knowledge/
+/knowledge_base/
+/creator_knowledge_base/
+/private/
+/artifacts/
+/deliverables/
+/exports/
+/works/
+/models/weights/
+/HANDOFF.md
+/tools/creator_specs.json
+/docs/capcut_verification.md
+/docs/architecture_review_*.md
+/examples/
+/tools/create_capcut_sample.py
+/tools/verify_capcut_mcp.py
+/.agents/
+/.codex/
+/.aws/
+*.duckdb
+*.duckdb.wal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-wal
+*.db-shm
+*.docx
+*.pptx
+*.pdf
+*.zip
+*.7z
+*.bak
+*.blend
+*.glb
+*.fbx
+*.mp4.*
+*.local.json
+*.local.yml
+*.local.yaml
 *.log
 *.pid
 *.sqlite
@@ -22,6 +63,8 @@
 *.db
 
 # Downloaded media, transcripts, and model weights
+/.downloads/
+/integrations/english_review/bin/
 *.mp4
 *.mkv
 *.webm
@@ -48,11 +91,18 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+.venv-capcut/
+/config/capcut.local.json
 venv/
 env/
 build/
 dist/
 *.egg-info/
+node_modules/
+
+# Accidental CLI option output files
+/--rate
+/--write-media
 
 # Browser and platform authentication state
 **/browser_profile/
@@ -60,6 +110,7 @@ dist/
 playwright/.auth/
 
 # Editors and operating systems
+/.test-tmp/
 .idea/
 .vscode/
 .DS_Store

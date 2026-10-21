@@ -1,0 +1,4 @@
+# Windows CUDA 12 runtime used by faster-whisper/OpenCLIP GPU execution.
+nvidia-cublas-cu12==12.8.5.5; platform_system == "Windows"
+nvidia-cudnn-cu12==9.17.1.4; platform_system == "Windows"
+nvidia-cuda-nvrtc-cu12==12.8.93; platform_system == "Windows"

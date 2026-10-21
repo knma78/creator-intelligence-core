@@ -3,16 +3,19 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from analyzer.comments import analyze_comments
 from analyzer.cover import analyze_cover
+from analyzer.audio_rhythm import analyze_audio_rhythm
 from analyzer.nlp import analyze_text_nlp
 from analyzer.scenes import analyze_video_scenes
 from analyzer.title_stats import analyze_title_stats
 from config import SETTINGS, Settings
 from downloader.comments import fetch_bilibili_comments
 from infrastructure.atomic_io import atomic_write_json, atomic_write_text
+from infrastructure.cancellation import raise_if_cancelled
+from infrastructure.progress import BatchProgressMessage
 from models import AnalysisResult, Transcript, Video
 
 
@@ -21,16 +24,54 @@ def enrich_video(
     transcript: Transcript,
     analysis: AnalysisResult,
     settings: Settings = SETTINGS,
+    *,
+    progress_callback: Callable[[str, int, str], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
+    def progress(stage: str, percent: int, message: str) -> None:
+        raise_if_cancelled(cancel_requested)
+        if progress_callback:
+            progress_callback(stage, percent, message)
+
     output_dir = settings.output_dir / video.video_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    progress("V3评论分析", 91, "正在读取和分析评论数据。")
     comments_payload = _safe_fetch_comments(video, settings)
     comments_analysis = analyze_comments(comments_payload)
-    cover_analysis = analyze_cover(video, settings)
+    progress("V3封面分析", 92, "正在执行封面 OCR 与 OpenCLIP 视觉语义分析。")
+    cover_analysis = analyze_cover(
+        video,
+        settings,
+        cancel_requested=cancel_requested,
+    )
     title_stats = analyze_title_stats([video.title])
+    progress("V3文本语义", 93, "正在提取实体、句子和文本语义特征。")
     nlp_analysis = analyze_text_nlp(transcript.text, settings)
-    scene_analysis = analyze_video_scenes(video.video_path, settings)
+    progress("V3场景分析", 94, "正在采样视频画面并检测镜头切换。")
+    scene_analysis = analyze_video_scenes(
+        video.video_path,
+        settings,
+        progress_callback=(
+            lambda current, total: progress(
+                "V3场景分析",
+                94,
+                BatchProgressMessage(
+                    f"正在分析场景样本：{current}/{total}",
+                    current=current,
+                    total=total,
+                ),
+            )
+        ),
+        cancel_requested=cancel_requested,
+    )
+    progress("V3音频节奏", 95, "正在计算音频节奏、静音与动态范围。")
+    audio_rhythm_analysis = analyze_audio_rhythm(
+        video.video_path,
+        video.video_id,
+        settings,
+        cancel_requested=cancel_requested,
+    )
 
     payload = {
         "video_id": video.video_id,
@@ -40,6 +81,7 @@ def enrich_video(
         "title_stats": title_stats,
         "nlp_analysis": nlp_analysis,
         "scene_analysis": scene_analysis,
+        "audio_rhythm_analysis": audio_rhythm_analysis,
         "rag_ready_text": _rag_ready_text(
             video,
             transcript,
@@ -48,9 +90,11 @@ def enrich_video(
             cover_analysis,
             nlp_analysis,
             scene_analysis,
+            audio_rhythm_analysis,
         ),
     }
 
+    progress("V3结果写入", 96, "正在写入增强分析与检索文本。")
     atomic_write_json(output_dir / "v3.json", payload)
     atomic_write_text(output_dir / "v3.md", _build_v3_markdown(payload))
     _copy_cover_if_exists(cover_analysis, output_dir)
@@ -71,8 +115,14 @@ def _rag_ready_text(
     cover_analysis: dict[str, Any],
     nlp_analysis: dict[str, Any],
     scene_analysis: dict[str, Any],
+    audio_rhythm_analysis: dict[str, Any],
 ) -> str:
     cover_ocr = ((cover_analysis.get("ocr") or {}).get("text")) or ""
+    visual_semantics = cover_analysis.get("visual_semantics") or {}
+    visual_labels = "、".join(
+        str(item.get("label_zh") or item.get("label") or "")
+        for item in visual_semantics.get("top_labels", [])[:5]
+    )
     comment_keywords = "、".join(item.get("word", "") for item in comments_analysis.get("keywords", [])[:10])
     entities = "、".join(item.get("text", "") for item in nlp_analysis.get("entities", [])[:15])
     return "\n".join(
@@ -82,12 +132,19 @@ def _rag_ready_text(
             f"高频词：{'、'.join(str(item.get('word', '')) for item in analysis.keywords[:10])}",
             f"评论关键词：{comment_keywords}",
             f"封面OCR：{cover_ocr}",
+            f"封面语义：{visual_labels}",
             f"实体：{entities}",
             (
                 "镜头节奏："
                 f"{scene_analysis.get('scene_count', 0)} 个镜头，"
                 f"平均 {scene_analysis.get('average_scene_duration', 0)} 秒，"
                 f"节奏 {scene_analysis.get('pace', 'unknown')}"
+            ),
+            (
+                "音频节奏："
+                f"{audio_rhythm_analysis.get('tempo_bpm', 0)} BPM，"
+                f"每分钟声音起点 {audio_rhythm_analysis.get('onsets_per_minute', 0)}，"
+                f"静音占比 {audio_rhythm_analysis.get('silence_ratio', 0)}"
             ),
             "字幕：",
             transcript.text,
@@ -101,6 +158,7 @@ def _build_v3_markdown(payload: dict[str, Any]) -> str:
     title_stats = payload["title_stats"]
     nlp = payload.get("nlp_analysis") or {}
     scenes = payload.get("scene_analysis") or {}
+    audio_rhythm = payload.get("audio_rhythm_analysis") or {}
     lines = [
         "# V3增强分析",
         "",
@@ -122,6 +180,13 @@ def _build_v3_markdown(payload: dict[str, Any]) -> str:
     ocr = cover.get("ocr") or {}
     lines.append(f"OCR状态：{ocr.get('status', '')}")
     lines.append(f"OCR文本：{ocr.get('text', '')}")
+    visual_semantics = cover.get("visual_semantics") or {}
+    lines.append(f"OpenCLIP状态：{visual_semantics.get('status', '')}")
+    for item in visual_semantics.get("top_labels", [])[:5]:
+        lines.append(
+            f"- {item.get('label_zh') or item.get('label', '')}："
+            f"{item.get('score', 0)}"
+        )
     lines.extend(["", "# 标题统计", ""])
     lines.append(f"标题长度：{title_stats.get('average_length', 0)}")
     lines.append(f"是否问题式：{title_stats.get('question_title_count', 0)}")
@@ -140,6 +205,12 @@ def _build_v3_markdown(payload: dict[str, Any]) -> str:
     lines.append(f"切点数：{scenes.get('cut_count', 0)}")
     lines.append(f"平均镜头时长：{scenes.get('average_scene_duration', 0)} 秒")
     lines.append(f"镜头节奏：{scenes.get('pace', '')}")
+    lines.extend(["", "# librosa audio rhythm", ""])
+    lines.append(f"status: {audio_rhythm.get('status', '')}")
+    lines.append(f"tempo_bpm: {audio_rhythm.get('tempo_bpm', '')}")
+    lines.append(f"onsets_per_minute: {audio_rhythm.get('onsets_per_minute', '')}")
+    lines.append(f"silence_ratio: {audio_rhythm.get('silence_ratio', '')}")
+    lines.append(f"dynamic_range_db: {audio_rhythm.get('dynamic_range_db', '')}")
     return "\n".join(lines).rstrip() + "\n"
 
 

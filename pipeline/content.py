@@ -4,14 +4,25 @@ import hashlib
 import json
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from analyzer.up_profile import build_up_profile
 from config import SETTINGS, Settings, ensure_directories
 from downloader.bilibili import is_bilibili_url, normalize_bilibili_url
+from downloader.bilibili_collection import (
+    BilibiliCollectionCrawler,
+    is_bilibili_collection_url,
+)
 from downloader.bilibili_up import is_bilibili_up_source
 from exporter.content_profile import export_content_profile
+from infrastructure.cancellation import (
+    JobCancelledError,
+    cancellation_scope,
+    raise_if_cancelled,
+)
+from infrastructure.progress import BatchProgressMessage
 from infrastructure.atomic_io import atomic_write_json
 from models import BATCH_RESULT_SCHEMA_VERSION
 from pipeline.run import run_video_pipeline_details
@@ -33,6 +44,14 @@ SUPPORTED_CONTENT_CATEGORIES = {
 URL_RE = re.compile(r"https?://[^\s，,]+|BV[0-9A-Za-z]+", re.IGNORECASE)
 
 
+@dataclass(frozen=True)
+class ResolvedContentSources:
+    input_sources: list[str]
+    video_sources: list[str]
+    collection_title: str
+    category_hint: str
+
+
 def run_content_pipeline(
     source: str,
     settings: Settings = SETTINGS,
@@ -42,6 +61,10 @@ def run_content_pipeline(
     limit: int | None = None,
     enrich_v3: bool = False,
     build_kb: bool = False,
+    allow_playback_capture: bool = False,
+    capture_duration_seconds: float | None = None,
+    capture_stop_requested: Callable[[], bool] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
     progress_callback: Callable[[str, int, str], None] | None = None,
 ) -> dict[str, Any]:
     from processor.whisper import whisper_model_session
@@ -55,6 +78,10 @@ def run_content_pipeline(
             limit=limit,
             enrich_v3=enrich_v3,
             build_kb=build_kb,
+            allow_playback_capture=allow_playback_capture,
+            capture_duration_seconds=capture_duration_seconds,
+            capture_stop_requested=capture_stop_requested,
+            cancel_requested=cancel_requested,
             progress_callback=progress_callback,
         )
 
@@ -68,15 +95,33 @@ def _run_content_pipeline(
     limit: int | None = None,
     enrich_v3: bool = False,
     build_kb: bool = False,
+    allow_playback_capture: bool = False,
+    capture_duration_seconds: float | None = None,
+    capture_stop_requested: Callable[[], bool] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
     progress_callback: Callable[[str, int, str], None] | None = None,
 ) -> dict[str, Any]:
     ensure_directories(settings)
-    sources = parse_content_sources(source, limit=limit)
+    input_sources = parse_content_sources(source)
     requested_category = normalize_content_category(content_category)
 
     def progress(stage: str, percent: int, message: str) -> None:
+        raise_if_cancelled(cancel_requested)
         if progress_callback:
             progress_callback(stage, percent, message)
+
+    with cancellation_scope(cancel_requested):
+        resolution = resolve_content_sources(
+            input_sources,
+            settings,
+            limit=limit,
+            progress_callback=progress,
+        )
+    sources = resolution.video_sources
+    effective_subject_name = subject_name.strip() or resolution.collection_title
+    effective_category = requested_category
+    if effective_category == "auto" and resolution.category_hint != "auto":
+        effective_category = resolution.category_hint
 
     progress(
         "内容作品",
@@ -86,7 +131,7 @@ def _run_content_pipeline(
     records: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     subject_id = _content_subject_id(
-        subject_name,
+        effective_subject_name,
         sources,
     )
     output_dir = settings.output_dir / f"content_bilibili_{subject_id}"
@@ -112,6 +157,10 @@ def _run_content_pipeline(
                 settings,
                 enrich_v3=enrich_v3,
                 progress_callback=item_progress,
+                allow_playback_capture=allow_playback_capture,
+                capture_duration_seconds=capture_duration_seconds,
+                capture_stop_requested=capture_stop_requested,
+                cancel_requested=cancel_requested,
             )
             records.append(result)
             progress(
@@ -122,6 +171,8 @@ def _run_content_pipeline(
                     f"{result['video'].title}"
                 ),
             )
+        except JobCancelledError:
+            raise
         except Exception as exc:
             logger.exception("Content work item failed: %s", source_url)
             failures.append(
@@ -142,11 +193,12 @@ def _run_content_pipeline(
             records,
             failures,
             subject_id=subject_id,
-            subject_name=subject_name,
-            content_category=requested_category,
+            subject_name=effective_subject_name,
+            content_category=effective_category,
+            input_sources=resolution.input_sources,
         )
 
-    inferred_name = _resolve_subject_name(subject_name, records)
+    inferred_name = _resolve_subject_name(effective_subject_name, records)
     category_rules = load_content_type_rules()
     resolved_category = classify_content_category(
         inferred_name,
@@ -155,7 +207,7 @@ def _run_content_pipeline(
             for record in records
             if record.get("video")
         ],
-        requested_category=requested_category,
+        requested_category=effective_category,
         rules=category_rules,
     )
     category_label = content_category_label(
@@ -174,6 +226,7 @@ def _run_content_pipeline(
             "content_category": resolved_category,
             "content_category_label": category_label,
             "source_urls": sources,
+            "input_sources": resolution.input_sources,
             "video_count": len(sources),
         }
     )
@@ -206,6 +259,16 @@ def _run_content_pipeline(
             settings.output_dir,
             settings.knowledge_base_dir / "index.json",
             settings,
+            cancel_requested=cancel_requested,
+            progress_callback=lambda current, total: progress(
+                "知识库整理",
+                min(97, 94 + int((current / max(total, 1)) * 3)),
+                BatchProgressMessage(
+                    f"正在整理知识文档：{current}/{total}",
+                    current=current,
+                    total=total,
+                ),
+            ),
         )
 
     _write_manifest(
@@ -216,6 +279,7 @@ def _run_content_pipeline(
         subject_id=subject_id,
         subject_name=inferred_name,
         content_category=resolved_category,
+        input_sources=resolution.input_sources,
         profile_path=profile_path,
         kb_path=kb_path,
     )
@@ -223,6 +287,7 @@ def _run_content_pipeline(
         "schema_version": BATCH_RESULT_SCHEMA_VERSION,
         "platform": "bilibili",
         "source": "\n".join(sources),
+        "input_source": source,
         "subject_type": "content_work",
         "subject_id": subject_id,
         "subject_name": inferred_name,
@@ -267,6 +332,57 @@ def parse_content_sources(source: str, limit: int | None = None) -> list[str]:
     if limit is not None:
         sources = sources[: max(1, int(limit))]
     return sources
+
+
+def resolve_content_sources(
+    input_sources: list[str],
+    settings: Settings,
+    *,
+    limit: int | None,
+    progress_callback: Callable[[str, int, str], None] | None = None,
+) -> ResolvedContentSources:
+    maximum = max(1, int(limit or settings.batch_limit))
+    video_sources: list[str] = []
+    seen: set[str] = set()
+    collection_title = ""
+    category_hint = "auto"
+    for input_source in input_sources:
+        if len(video_sources) >= maximum:
+            break
+        if is_bilibili_collection_url(input_source):
+            if progress_callback:
+                progress_callback(
+                    "内容列表",
+                    16,
+                    "正在解析B站电影、番剧或综艺季页面。",
+                )
+            collection = BilibiliCollectionCrawler(settings).fetch_video_sources(
+                input_source,
+                maximum - len(video_sources),
+            )
+            collection_title = collection_title or collection.title
+            if category_hint == "auto":
+                category_hint = collection.category_hint
+            candidates = [
+                str(item.get("source_url") or "").strip()
+                for item in collection.videos
+            ]
+        else:
+            candidates = [input_source]
+        for candidate in candidates:
+            if candidate and candidate not in seen:
+                seen.add(candidate)
+                video_sources.append(candidate)
+            if len(video_sources) >= maximum:
+                break
+    if not video_sources:
+        raise ValueError("没有解析到可分析的B站内容视频。")
+    return ResolvedContentSources(
+        input_sources=input_sources,
+        video_sources=video_sources,
+        collection_title=collection_title,
+        category_hint=category_hint,
+    )
 
 
 def load_content_type_rules(path: Path | None = None) -> dict[str, Any]:
@@ -357,6 +473,7 @@ def _write_manifest(
     subject_id: str,
     subject_name: str,
     content_category: str,
+    input_sources: list[str] | None = None,
     profile_path: Path | None = None,
     kb_path: Path | None = None,
 ) -> None:
@@ -371,6 +488,7 @@ def _write_manifest(
             "content_category": content_category,
             "seed_count": len(sources),
             "source_urls": sources,
+            "input_sources": input_sources or sources,
             "success_count": len(records),
             "failure_count": len(failures),
             "outputs": [

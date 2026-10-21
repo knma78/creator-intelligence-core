@@ -38,6 +38,14 @@ def _env_language(name: str, default: str | None) -> str | None:
     return str(selected).strip()
 
 
+def _env_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    items = tuple(item.strip() for item in value.split(",") if item.strip())
+    return items or default
+
+
 def _detect_ffmpeg_path() -> str:
     configured = os.getenv("FFMPEG_PATH")
     if configured:
@@ -53,6 +61,50 @@ def _detect_ffmpeg_path() -> str:
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception:
         return "ffmpeg"
+
+
+def _detect_video_ffmpeg_path() -> str:
+    configured = os.getenv("VIDEO_FFMPEG_PATH")
+    if configured:
+        return configured
+    return _detect_ffmpeg_path()
+
+
+def _detect_ffprobe_path() -> str:
+    configured = os.getenv("FFPROBE_PATH")
+    if configured:
+        return configured
+    video_ffmpeg = Path(_detect_video_ffmpeg_path())
+    sibling = video_ffmpeg.with_name(
+        "ffprobe.exe" if os.name == "nt" else "ffprobe"
+    )
+    if sibling.is_file():
+        return str(sibling)
+    return shutil.which("ffprobe") or "ffprobe"
+
+
+def _detect_optional_tool(
+    env_name: str,
+    executable: str,
+    candidates: tuple[Path, ...],
+) -> str | None:
+    configured = os.getenv(env_name)
+    if configured:
+        return configured
+    system_path = shutil.which(executable)
+    if system_path:
+        return system_path
+    return next(
+        (str(path) for path in candidates if path.is_file()),
+        None,
+    )
+
+
+def _detect_video_factory_root() -> Path:
+    configured = os.getenv("VIDEO_FACTORY_ROOT")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return BASE_DIR / "integrations" / "video-factory"
 
 
 @dataclass(frozen=True)
@@ -85,10 +137,58 @@ class Settings:
     llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "gpt-4.1-mini"))
     llm_timeout: int = field(default_factory=lambda: int(os.getenv("LLM_TIMEOUT", "120")))
     llm_max_chars: int = field(default_factory=lambda: int(os.getenv("LLM_MAX_CHARS", "60000")))
+    novel_writing_skill_path: Path = field(
+        default_factory=lambda: _env_path(
+            "NOVEL_WRITING_SKILL_PATH",
+            Path.home() / ".codex" / "skills" / "novel-writing",
+        )
+    )
+    native_english_review_skill_path: Path = field(
+        default_factory=lambda: _env_path(
+            "NATIVE_ENGLISH_REVIEW_SKILL_PATH",
+            Path.home() / ".codex" / "skills" / "native-english-fiction-review",
+        )
+    )
+    novel_review_model: str = field(
+        default_factory=lambda: os.getenv("NOVEL_REVIEW_MODEL")
+        or os.getenv("LLM_MODEL", "gpt-4.1-mini")
+    )
+    english_review_harper_cli_path: str | None = field(
+        default_factory=lambda: os.getenv("ENGLISH_REVIEW_HARPER_CLI_PATH")
+    )
 
     ffmpeg_path: str = field(default_factory=_detect_ffmpeg_path)
+    video_ffmpeg_path: str = field(default_factory=_detect_video_ffmpeg_path)
+    ffprobe_path: str = field(default_factory=_detect_ffprobe_path)
+    video_factory_root: Path = field(default_factory=_detect_video_factory_root)
+    edge_tts_path: str | None = field(
+        default_factory=lambda: _detect_optional_tool(
+            "EDGE_TTS_PATH",
+            "edge-tts",
+            (),
+        )
+    )
+    blender_path: str | None = field(
+        default_factory=lambda: _detect_optional_tool(
+            "BLENDER_PATH",
+            "blender",
+            (),
+        )
+    )
+    aerender_path: str | None = field(
+        default_factory=lambda: _detect_optional_tool(
+            "AERENDER_PATH",
+            "aerender",
+            (),
+        )
+    )
     bilibili_cookie_file: str | None = field(default_factory=lambda: os.getenv("BILIBILI_COOKIE_FILE"))
     bilibili_cookies_from_browser: str | None = field(default_factory=lambda: os.getenv("BILIBILI_COOKIES_FROM_BROWSER"))
+    bilibili_download_attempts: int = field(default_factory=lambda: int(os.getenv("BILIBILI_DOWNLOAD_ATTEMPTS", "2")))
+    bilibili_download_retries: int = field(default_factory=lambda: int(os.getenv("BILIBILI_DOWNLOAD_RETRIES", "8")))
+    bilibili_fragment_retries: int = field(default_factory=lambda: int(os.getenv("BILIBILI_FRAGMENT_RETRIES", "12")))
+    bilibili_socket_timeout: int = field(default_factory=lambda: int(os.getenv("BILIBILI_SOCKET_TIMEOUT", "30")))
+    bilibili_http_chunk_size: int = field(default_factory=lambda: int(os.getenv("BILIBILI_HTTP_CHUNK_SIZE", "10485760")))
     youtube_cookie_file: str | None = field(default_factory=lambda: os.getenv("YOUTUBE_COOKIE_FILE"))
     youtube_cookies_from_browser: str | None = field(default_factory=lambda: os.getenv("YOUTUBE_COOKIES_FROM_BROWSER"))
     douyin_cookie_file: str | None = field(default_factory=lambda: os.getenv("DOUYIN_COOKIE_FILE"))
@@ -115,6 +215,55 @@ class Settings:
     scene_detection_enabled: bool = field(default_factory=lambda: _env_bool("SCENE_DETECTION_ENABLED", True))
     scene_threshold: float = field(default_factory=lambda: float(os.getenv("SCENE_THRESHOLD", "27.0")))
     scene_min_seconds: float = field(default_factory=lambda: float(os.getenv("SCENE_MIN_SECONDS", "0.6")))
+    scene_sample_seconds: float = field(default_factory=lambda: float(os.getenv("SCENE_SAMPLE_SECONDS", "2.0")))
+    scene_max_samples: int = field(default_factory=lambda: int(os.getenv("SCENE_MAX_SAMPLES", "900")))
+    scene_downscale_width: int = field(default_factory=lambda: int(os.getenv("SCENE_DOWNSCALE_WIDTH", "640")))
+    analytics_store_enabled: bool = field(default_factory=lambda: _env_bool("ANALYTICS_STORE_ENABLED", True))
+    openclip_enabled: bool = field(default_factory=lambda: _env_bool("OPENCLIP_ENABLED", True))
+    openclip_allow_download: bool = field(default_factory=lambda: _env_bool("OPENCLIP_ALLOW_DOWNLOAD", False))
+    openclip_model: str = field(default_factory=lambda: os.getenv("OPENCLIP_MODEL", "ViT-B-32"))
+    openclip_pretrained: str = field(default_factory=lambda: os.getenv("OPENCLIP_PRETRAINED", "laion2b_s34b_b79k"))
+    openclip_device: str = field(default_factory=lambda: os.getenv("OPENCLIP_DEVICE", "auto"))
+    openclip_top_k: int = field(default_factory=lambda: int(os.getenv("OPENCLIP_TOP_K", "5")))
+    openclip_store_embedding: bool = field(default_factory=lambda: _env_bool("OPENCLIP_STORE_EMBEDDING", True))
+    openclip_labels: tuple[str, ...] = field(
+        default_factory=lambda: _env_list(
+            "OPENCLIP_LABELS",
+            (
+                "talking head",
+                "anime illustration",
+                "movie scene",
+                "gameplay",
+                "tutorial screen",
+                "product close-up",
+                "text-heavy poster",
+                "emotional face",
+                "action scene",
+                "landscape",
+                "infographic",
+                "meme",
+            ),
+        )
+    )
+    audio_rhythm_enabled: bool = field(default_factory=lambda: _env_bool("AUDIO_RHYTHM_ENABLED", True))
+    audio_rhythm_backend: str = field(default_factory=lambda: os.getenv("AUDIO_RHYTHM_BACKEND", "auto"))
+    audio_rhythm_sample_rate: int = field(default_factory=lambda: int(os.getenv("AUDIO_RHYTHM_SAMPLE_RATE", "16000")))
+    audio_rhythm_max_seconds: int = field(default_factory=lambda: int(os.getenv("AUDIO_RHYTHM_MAX_SECONDS", "1800")))
+    job_worker_count: int = field(default_factory=lambda: int(os.getenv("JOB_WORKER_COUNT", "1")))
+    job_queue_capacity: int = field(default_factory=lambda: int(os.getenv("JOB_QUEUE_CAPACITY", "100")))
+    job_history_limit: int = field(default_factory=lambda: int(os.getenv("JOB_HISTORY_LIMIT", "20")))
+    job_log_limit: int = field(default_factory=lambda: int(os.getenv("JOB_LOG_LIMIT", "500")))
+    resource_network_slots: int = field(default_factory=lambda: int(os.getenv("RESOURCE_NETWORK_SLOTS", "3")))
+    resource_cpu_heavy_slots: int = field(default_factory=lambda: int(os.getenv("RESOURCE_CPU_HEAVY_SLOTS", "2")))
+    resource_gpu_slots: int = field(default_factory=lambda: int(os.getenv("RESOURCE_GPU_SLOTS", "1")))
+    resource_realtime_audio_slots: int = field(default_factory=lambda: int(os.getenv("RESOURCE_REALTIME_AUDIO_SLOTS", "1")))
+    resource_acquire_timeout: float = field(default_factory=lambda: float(os.getenv("RESOURCE_ACQUIRE_TIMEOUT", "3600")))
+    playback_capture_enabled: bool = field(default_factory=lambda: _env_bool("PLAYBACK_CAPTURE_ENABLED", True))
+    playback_capture_default_seconds: int = field(default_factory=lambda: int(os.getenv("PLAYBACK_CAPTURE_DEFAULT_SECONDS", "300")))
+    playback_capture_max_seconds: int = field(default_factory=lambda: int(os.getenv("PLAYBACK_CAPTURE_MAX_SECONDS", "14400")))
+    playback_capture_warmup_seconds: int = field(default_factory=lambda: int(os.getenv("PLAYBACK_CAPTURE_WARMUP_SECONDS", "8")))
+    playback_capture_open_browser: bool = field(default_factory=lambda: _env_bool("PLAYBACK_CAPTURE_OPEN_BROWSER", True))
+    playback_capture_silence_threshold: float = field(default_factory=lambda: float(os.getenv("PLAYBACK_CAPTURE_SILENCE_THRESHOLD", "0.001")))
 
     overwrite_cache: bool = field(default_factory=lambda: _env_bool("CONTENT_RESEARCH_OVERWRITE", False))
 
@@ -155,6 +304,37 @@ class Settings:
         return self.cache_dir / "platform_auth"
 
     @property
+    def acquisition_cache_dir(self) -> Path:
+        return self.cache_dir / "acquisitions"
+
+    @property
+    def playback_capture_dir(self) -> Path:
+        return self.cache_dir / "playback_capture"
+
+    @property
+    def video_production_dir(self) -> Path:
+        configured = os.getenv("VIDEO_PRODUCTION_DIR")
+        if configured:
+            value = Path(configured).expanduser()
+            return (
+                value.resolve()
+                if value.is_absolute()
+                else (self.base_dir / value).resolve()
+            )
+        return self.output_dir / "video_production"
+
+    @property
+    def novel_writing_output_dir(self) -> Path:
+        return self.output_dir / "novel_writing"
+
+    @property
+    def english_review_harper_cli(self) -> Path:
+        if self.english_review_harper_cli_path:
+            value = Path(self.english_review_harper_cli_path).expanduser()
+            return value if value.is_absolute() else (self.base_dir / value).resolve()
+        return self.base_dir / "integrations" / "english_review" / "bin" / "harper-cli.exe"
+
+    @property
     def douyin_adapter_dir(self) -> Path:
         if self.douyin_adapter_root:
             value = Path(self.douyin_adapter_root).expanduser()
@@ -168,6 +348,32 @@ class Settings:
     @property
     def model_cache_dir(self) -> Path:
         return self.cache_dir / "models"
+
+    @property
+    def analytics_database_path(self) -> Path:
+        configured = os.getenv("ANALYTICS_DB_PATH")
+        if configured:
+            value = Path(configured).expanduser()
+            return value.resolve() if value.is_absolute() else (self.base_dir / value).resolve()
+        return self.cache_dir / "analytics" / "content_research.duckdb"
+
+    @property
+    def job_database_path(self) -> Path:
+        configured = os.getenv("JOB_DB_PATH")
+        if configured:
+            value = Path(configured).expanduser()
+            return value.resolve() if value.is_absolute() else (self.base_dir / value).resolve()
+        return self.cache_dir / "jobs" / "jobs.sqlite3"
+
+    @property
+    def creator_progress_database_path(self) -> Path:
+        configured = os.getenv("CREATOR_PROGRESS_DB_PATH")
+        if configured:
+            value = Path(configured).expanduser()
+            return value.resolve() if value.is_absolute() else (self.base_dir / value).resolve()
+        # Deliberately outside cache/ and output/: clearing media or analysis
+        # artifacts must not reset the creator-learning cursor.
+        return self.base_dir / "state" / "creator_progress.sqlite3"
 
 
 def load_settings(*, reload_env: bool = False) -> Settings:
@@ -193,8 +399,14 @@ def ensure_directories(settings: Settings = SETTINGS) -> None:
         settings.knowledge_base_dir,
         settings.vector_knowledge_base_dir,
         settings.model_cache_dir,
+        settings.analytics_database_path.parent,
+        settings.job_database_path.parent,
         settings.douyin_cache_dir,
         settings.platform_auth_dir,
+        settings.acquisition_cache_dir,
+        settings.playback_capture_dir,
+        settings.video_production_dir,
+        settings.novel_writing_output_dir,
     ):
         path.mkdir(parents=True, exist_ok=True)
 

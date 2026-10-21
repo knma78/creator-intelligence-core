@@ -38,58 +38,9 @@ CAPABILITY_CATEGORIES = [
 CREATOR_SPECS_PATH = SETTINGS.base_dir / "tools" / "creator_specs.json"
 
 
-DEFAULT_CREATOR_SPECS: dict[str, dict[str, Any]] = {
-    "小约翰可汗": {
-        "required": True,
-        "positioning": "Storytelling",
-        "profile_name": "Storytelling Profile",
-        "target_audience": "喜欢人物、国家和事件故事的知识型观众",
-        "primary_categories": ["Storytelling", "Hook", "Rhythm", "Character", "Ending", "Transition"],
-    },
-    "历史调研室": {
-        "required": True,
-        "positioning": "Logical Narrative",
-        "profile_name": "Logical Narrative Profile",
-        "target_audience": "希望理解历史事件因果链和背景结构的观众",
-        "primary_categories": ["Logic", "Historical Narrative", "Narration", "Transition", "Ending"],
-    },
-    "Linvo说宇宙": {
-        "required": True,
-        "aliases": ["Liovo讲宇宙", "Linvo说宇宙"],
-        "positioning": "Science Explanation",
-        "profile_name": "Science Explanation Profile",
-        "target_audience": "对宇宙、科学概念和新研究感兴趣的泛知识观众",
-        "primary_categories": ["Explanation", "Science Narrative", "Hook", "Teaching", "World Building"],
-    },
-    "食贫道": {
-        "required": True,
-        "positioning": "Emotion Narrative",
-        "profile_name": "Emotion Narrative Profile",
-        "target_audience": "关注现实人物、社会现场和纪录片表达的观众",
-        "primary_categories": ["Emotion", "Narration", "Character", "Visualization", "Ending"],
-    },
-    "毕导": {
-        "required": True,
-        "positioning": "Visual Teaching",
-        "profile_name": "Visual Teaching Profile",
-        "target_audience": "喜欢用视觉化、实验化方式理解知识的观众",
-        "primary_categories": ["Visualization", "Teaching", "Explanation", "Rhythm", "Hook"],
-    },
-    "木鱼水心": {
-        "required": True,
-        "positioning": "Story Analysis",
-        "profile_name": "Story Analysis Profile",
-        "target_audience": "希望理解影视剧情、人物和主题表达的观众",
-        "primary_categories": ["Plot Analysis", "Character", "World Building", "Emotion", "Ending"],
-    },
-    "五个光": {
-        "required": True,
-        "positioning": "Anime Narrative",
-        "profile_name": "Anime Narrative Profile",
-        "target_audience": "希望快速进入动漫剧情、人物动机和世界观的观众",
-        "primary_categories": ["Anime Narrative", "Plot Analysis", "World Building", "Character", "Hook", "Rhythm"],
-    },
-}
+# Public distributions start without a personal creator collection.
+# Users may supply the ignored local tools/creator_specs.json.
+DEFAULT_CREATOR_SPECS: dict[str, dict[str, Any]] = {}
 
 
 CREATOR_SPECS = DEFAULT_CREATOR_SPECS

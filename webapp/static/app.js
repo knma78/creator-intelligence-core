@@ -6,6 +6,8 @@ const sourceHint = document.getElementById("sourceHint");
 const limitInput = document.getElementById("limitInput");
 const v3Input = document.getElementById("v3Input");
 const kbInput = document.getElementById("kbInput");
+const playbackCaptureInput = document.getElementById("playbackCaptureInput");
+const captureDurationInput = document.getElementById("captureDurationInput");
 const contentWorkOptions = document.getElementById("contentWorkOptions");
 const subjectNameInput = document.getElementById("subjectNameInput");
 const contentCategoryInput = document.getElementById("contentCategoryInput");
@@ -19,11 +21,14 @@ const douyinLoginButton = document.getElementById("douyinLoginButton");
 const bilibiliAccess = document.getElementById("bilibiliAccess");
 const bilibiliAccessMessage = document.getElementById("bilibiliAccessMessage");
 const bilibiliAuthButton = document.getElementById("bilibiliAuthButton");
+const bilibiliEntitlementButton = document.getElementById("bilibiliEntitlementButton");
+const bilibiliEntitlementStatus = document.getElementById("bilibiliEntitlementStatus");
 const youtubeAccess = document.getElementById("youtubeAccess");
 const youtubeAccessMessage = document.getElementById("youtubeAccessMessage");
 const youtubeAuthButton = document.getElementById("youtubeAuthButton");
 const refreshJobs = document.getElementById("refreshJobs");
 const jobBadge = document.getElementById("jobBadge");
+const cancelJobButton = document.getElementById("cancelJobButton");
 const progressBar = document.getElementById("progressBar");
 const progressTrack = document.getElementById("progressTrack");
 const currentStage = document.getElementById("currentStage");
@@ -36,6 +41,7 @@ const whisperProgressTrack = document.getElementById("whisperProgressTrack");
 const whisperProgressBar = document.getElementById("whisperProgressBar");
 const whisperRuntimeReason = document.getElementById("whisperRuntimeReason");
 const whisperPhasePercent = document.getElementById("whisperPhasePercent");
+const stopCaptureButton = document.getElementById("stopCaptureButton");
 const logBox = document.getElementById("logBox");
 const resultList = document.getElementById("resultList");
 const resultMeta = document.getElementById("resultMeta");
@@ -44,6 +50,23 @@ const reportForm = document.getElementById("reportForm");
 const reportInput = document.getElementById("reportInput");
 const reportTopKInput = document.getElementById("reportTopKInput");
 const reportRebuildInput = document.getElementById("reportRebuildInput");
+const novelForm = document.getElementById("novelForm");
+const novelOperationInput = document.getElementById("novelOperationInput");
+const novelLanguageInput = document.getElementById("novelLanguageInput");
+const novelTargetCharsInput = document.getElementById("novelTargetCharsInput");
+const novelTargetLabel = document.getElementById("novelTargetLabel");
+const novelCorpusInput = document.getElementById("novelCorpusInput");
+const novelNativeReviewWrap = document.getElementById("novelNativeReviewWrap");
+const novelNativeReviewInput = document.getElementById("novelNativeReviewInput");
+const novelRequestInput = document.getElementById("novelRequestInput");
+const novelSourceField = document.getElementById("novelSourceField");
+const novelSourceInput = document.getElementById("novelSourceInput");
+const novelFormHint = document.getElementById("novelFormHint");
+const novelSubmitButton = document.getElementById("novelSubmitButton");
+const novelSkillBadge = document.getElementById("novelSkillBadge");
+const novelSkillMeta = document.getElementById("novelSkillMeta");
+const novelReviewBadge = document.getElementById("novelReviewBadge");
+const novelReviewMeta = document.getElementById("novelReviewMeta");
 const searchForm = document.getElementById("searchForm");
 const searchInput = document.getElementById("searchInput");
 const searchResults = document.getElementById("searchResults");
@@ -52,6 +75,8 @@ const knowledgeRefreshButton = document.getElementById("knowledgeRefreshButton")
 const knowledgeBuildButton = document.getElementById("knowledgeBuildButton");
 const knowledgeStatus = document.getElementById("knowledgeStatus");
 const knowledgeMeta = document.getElementById("knowledgeMeta");
+const knowledgeRules = document.getElementById("knowledgeRules");
+const knowledgeReviewer = document.getElementById("knowledgeReviewer");
 const advisorForm = document.getElementById("advisorForm");
 const advisorInput = document.getElementById("advisorInput");
 const advisorMinSamplesInput = document.getElementById("advisorMinSamplesInput");
@@ -70,6 +95,39 @@ const candidatePlatformInput = document.getElementById("candidatePlatformInput")
 const candidateAbilityInput = document.getElementById("candidateAbilityInput");
 const candidateUrlInput = document.getElementById("candidateUrlInput");
 const historyList = document.getElementById("historyList");
+const productionForm = document.getElementById("productionForm");
+const productionModeSelect = document.getElementById("productionModeSelect");
+const productionScriptFields = document.getElementById("productionScriptFields");
+const productionClipFields = document.getElementById("productionClipFields");
+const productionTitleInput = document.getElementById("productionTitleInput");
+const productionScriptInput = document.getElementById("productionScriptInput");
+const productionScriptHint = document.getElementById("productionScriptHint");
+const productionVoiceSelect = document.getElementById("productionVoiceSelect");
+const productionRateSelect = document.getElementById("productionRateSelect");
+const productionSourceSelect = document.getElementById("productionSourceSelect");
+const productionSourceHint = document.getElementById("productionSourceHint");
+const productionPlatformSelect = document.getElementById("productionPlatformSelect");
+const productionTargetInput = document.getElementById("productionTargetInput");
+const productionTargetField = document.getElementById("productionTargetField");
+const productionFpsSelect = document.getElementById("productionFpsSelect");
+const productionEngineField = document.getElementById("productionEngineField");
+const productionSubtitleInput = document.getElementById("productionSubtitleInput");
+const productionRefreshButton = document.getElementById("productionRefreshButton");
+const productionPlanButton = document.getElementById("productionPlanButton");
+const productionRenderButton = document.getElementById("productionRenderButton");
+const productionPlanMeta = document.getElementById("productionPlanMeta");
+const productionPlanPreview = document.getElementById("productionPlanPreview");
+const productionFfmpegBadge = document.getElementById("productionFfmpegBadge");
+const productionGpuBadge = document.getElementById("productionGpuBadge");
+const productionCapcutBadge = document.getElementById("productionCapcutBadge");
+const productionJobBadge = document.getElementById("productionJobBadge");
+const productionCancelButton = document.getElementById("productionCancelButton");
+const productionStage = document.getElementById("productionStage");
+const productionProgressPercent = document.getElementById("productionProgressPercent");
+const productionProgressTrack = document.getElementById("productionProgressTrack");
+const productionProgressBar = document.getElementById("productionProgressBar");
+const productionJobLog = document.getElementById("productionJobLog");
+const productionFiles = document.getElementById("productionFiles");
 const serverState = document.getElementById("serverState");
 const runtimeStateLabel = document.getElementById("runtimeStateLabel");
 const gpuStateLabel = document.getElementById("gpuStateLabel");
@@ -78,11 +136,14 @@ const clockLabel = document.getElementById("clockLabel");
 
 let activeJobId = null;
 let pollTimer = null;
-let pollInFlight = false;
+let pollInFlightKey = null;
+let pollGeneration = 0;
 let advisorAvailable = false;
 let gapAvailable = false;
 let discoveryAvailable = false;
 let advancedKnowledgeAvailable = false;
+let novelWritingAvailable = false;
+let nativeEnglishReviewAvailable = false;
 let douyinStatusTimer = null;
 let whisperRuntime = null;
 const platformAuthState = {
@@ -90,6 +151,9 @@ const platformAuthState = {
   youtube: null,
 };
 let platformAuthStatusTimer = null;
+let productionSources = [];
+let productionRuntime = null;
+let productionJobId = null;
 
 const gapStatusLabels = {
   empty: "暂无数据",
@@ -135,6 +199,12 @@ navItems.forEach((item) => {
     if (item.dataset.panel === "discoveryPanel") {
       loadCreatorDiscovery(false);
     }
+    if (item.dataset.panel === "productionPanel") {
+      loadProductionWorkspace();
+      if (productionJobId && productionJobId !== "creating") {
+        resumeProductionWatch(productionJobId);
+      }
+    }
   });
 });
 
@@ -160,6 +230,8 @@ jobForm.addEventListener("submit", async (event) => {
     limit: limitInput.value,
     v3: v3Input.checked,
     build_kb: kbInput.checked,
+    allow_playback_capture: playbackCaptureInput.checked,
+    capture_duration_seconds: captureDurationInput.value,
     subject_name: mode === "content" ? subjectNameInput.value.trim() : "",
     content_category: mode === "content" ? contentCategoryInput.value : "auto",
   });
@@ -170,16 +242,24 @@ modeInputs.forEach((input) => {
 });
 updateTaskMode();
 
+productionRefreshButton.addEventListener("click", loadProductionWorkspace);
+productionModeSelect.addEventListener("change", updateProductionMode);
+productionScriptInput.addEventListener("input", updateProductionSourceState);
+productionSourceSelect.addEventListener("change", updateProductionSourceState);
+productionPlanButton.addEventListener("click", requestProductionPlan);
+productionCancelButton.addEventListener("click", cancelProductionJob);
+productionForm.addEventListener("submit", startProductionJob);
+
 function updateTaskMode() {
   const mode = new FormData(jobForm).get("mode");
   const isContent = mode === "content";
   contentWorkOptions.hidden = !isContent;
   contentWorkOptions.classList.toggle("visible", isContent);
   if (isContent) {
-    sourceInput.placeholder = "每行输入一个B站视频链接或BV号；多期内容会合并为同一作品";
+    sourceInput.placeholder = "输入B站电影/番剧季页面，或每行一个视频链接/BV号";
     sourceHint.textContent = "综艺、电影、动漫、纪录片及其他B站内容均可学习";
   } else {
-    sourceInput.placeholder = "输入 B站 / YouTube / 抖音视频链接、创作者主页、UP 名或本地文件路径";
+    sourceInput.placeholder = "输入 B站视频/电影/番剧季页面、创作者主页或其他平台视频链接";
     sourceHint.textContent = "支持单视频、创作者批量、内容作品和本地媒体";
   }
 }
@@ -201,6 +281,83 @@ reportForm.addEventListener("submit", async (event) => {
   });
 });
 
+const novelOperationHints = {
+  concept: "故事设定会先建立故事契约，再给出核心冲突、世界规则和推进引擎。",
+  outline: "长篇大纲会同时规划宏观结构、篇章阶梯，以及成长、关系与谜团账本。",
+  chapter: "章节创作会遵循故事契约、场景转折与章节钩子检查。",
+  continue: "续写会继承原文事实、人物状态和情绪连续性，并制造新的不可逆变化。",
+  rewrite: "改写会保留核心意图，同时增强因果、人物能动性、代价与具体性。",
+  diagnose: "诊断会按 Promise、Causality、Agency、Cost、Payoff 等质量门槛定位问题。",
+  revise: "修订会根据你的目标直接交付可替换原文的新版成品。",
+};
+const novelSourceOperations = new Set(["continue", "rewrite", "diagnose", "revise"]);
+const novelLanguageHints = {
+  "zh-CN": "使用自然简体中文，保持中国网文的节奏与表达，避免翻译腔。",
+  "en-US": "保留中国网文的升级、爽点与钩子，使用母语级美式英语，不做中文句法直译。",
+  "en-GB": "保留中国网文的升级、爽点与钩子，使用母语级英式英语和一致拼写。",
+};
+
+novelOperationInput.addEventListener("change", updateNovelForm);
+novelLanguageInput.addEventListener("change", updateNovelLanguage);
+novelForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const source = novelRequestInput.value.trim();
+  const operation = novelOperationInput.value;
+  const sourceText = novelSourceInput.value.trim();
+  if (!novelWritingAvailable) {
+    setLog("本机 novel-writing Skill 当前不可用，请检查 Skill 状态。");
+    navItems[0].click();
+    return;
+  }
+  if (!source) {
+    novelRequestInput.focus();
+    return;
+  }
+  if (novelSourceOperations.has(operation) && !sourceText) {
+    novelSourceInput.focus();
+    return;
+  }
+  navItems[0].click();
+  await createJob({
+    source,
+    mode: "novel",
+    operation,
+    output_language: novelLanguageInput.value,
+    source_text: sourceText,
+    target_length: novelTargetCharsInput.value,
+    use_corpus_observations: novelCorpusInput.checked,
+    native_english_review: novelLanguageInput.value.startsWith("en-")
+      && nativeEnglishReviewAvailable
+      && novelNativeReviewInput.checked,
+    auto_native_revision: novelLanguageInput.value.startsWith("en-")
+      && nativeEnglishReviewAvailable
+      && novelNativeReviewInput.checked,
+  });
+});
+updateNovelLanguage();
+
+function updateNovelForm() {
+  const operation = novelOperationInput.value;
+  const sourceRequired = novelSourceOperations.has(operation);
+  novelSourceField.hidden = !sourceRequired;
+  novelSourceInput.required = sourceRequired;
+  const languageHint = novelLanguageHints[novelLanguageInput.value] || "";
+  const operationHint = novelOperationHints[operation] || "使用本机 novel-writing Skill 执行任务。";
+  novelFormHint.textContent = `${languageHint} ${operationHint}`;
+}
+
+function updateNovelLanguage() {
+  const english = novelLanguageInput.value.startsWith("en-");
+  novelNativeReviewWrap.hidden = !english;
+  novelTargetLabel.textContent = english ? "目标词数" : "目标字数";
+  if (english && novelTargetCharsInput.value === "3000") {
+    novelTargetCharsInput.value = "1500";
+  } else if (!english && novelTargetCharsInput.value === "1500") {
+    novelTargetCharsInput.value = "3000";
+  }
+  updateNovelForm();
+}
+
 buildKbButton.addEventListener("click", async () => {
   await startSystemJob("/api/kb/build", "知识库任务创建失败。");
 });
@@ -211,6 +368,9 @@ buildAdvancedKbButton.addEventListener("click", async () => {
 
 douyinLoginButton.addEventListener("click", startDouyinLogin);
 bilibiliAuthButton.addEventListener("click", () => startPlatformLogin("bilibili"));
+bilibiliEntitlementButton.addEventListener("click", checkBilibiliEntitlement);
+stopCaptureButton.addEventListener("click", stopPlaybackCapture);
+cancelJobButton.addEventListener("click", cancelActiveJob);
 youtubeAuthButton.addEventListener("click", () => startPlatformLogin("youtube"));
 
 knowledgeBuildButton.addEventListener("click", async () => {
@@ -218,6 +378,7 @@ knowledgeBuildButton.addEventListener("click", async () => {
 });
 
 knowledgeRefreshButton.addEventListener("click", loadKnowledgeStatus);
+knowledgeRules.addEventListener("click", handleKnowledgeRuleReview);
 
 refreshJobs.addEventListener("click", loadHistory);
 
@@ -317,6 +478,8 @@ async function checkServerCapabilities() {
     gapAvailable = Boolean(payload.features?.gap_analysis);
     discoveryAvailable = Boolean(payload.features?.creator_discovery);
     advancedKnowledgeAvailable = Boolean(payload.features?.advanced_knowledge);
+    renderNovelSkillStatus(payload.local_skills?.["novel-writing"] || {});
+    renderEnglishReviewStatus(payload.english_review || {});
     whisperRuntime = payload.whisper || null;
     if (gapRefreshButton) gapRefreshButton.disabled = !gapAvailable;
     discoveryRefreshButton.disabled = !discoveryAvailable;
@@ -343,6 +506,8 @@ async function checkServerCapabilities() {
     gapAvailable = false;
     discoveryAvailable = false;
     advancedKnowledgeAvailable = false;
+    renderNovelSkillStatus({ available: false, reason: "无法连接本地服务" });
+    renderEnglishReviewStatus({ available: false, reason: "无法连接本地服务" });
     if (gapRefreshButton) gapRefreshButton.disabled = true;
     discoveryRefreshButton.disabled = true;
     buildAdvancedKbButton.disabled = true;
@@ -354,6 +519,44 @@ async function checkServerCapabilities() {
     modelStateLabel.textContent = "--";
     renderServerUpgradeRequired();
   }
+}
+
+function renderNovelSkillStatus(skill) {
+  novelWritingAvailable = Boolean(skill.available);
+  novelSubmitButton.disabled = !novelWritingAvailable;
+  novelSkillBadge.className = `novel-skill-badge ${novelWritingAvailable ? "ready" : "error"}`;
+  novelSkillBadge.textContent = novelWritingAvailable ? "SKILL READY" : "SKILL UNAVAILABLE";
+  if (novelWritingAvailable) {
+    const capabilityCount = Array.isArray(skill.capabilities) ? skill.capabilities.length : 0;
+    novelSkillMeta.textContent = `${skill.name || "novel-writing"} · ${capabilityCount} 项能力 · ${skill.fingerprint || "已加载"}`;
+    novelSkillMeta.title = skill.path || "";
+  } else {
+    novelSkillMeta.textContent = skill.reason || "找不到本机 novel-writing Skill";
+    novelSkillMeta.title = skill.path || "";
+  }
+}
+
+function renderEnglishReviewStatus(runtime) {
+  const skillReady = Boolean(runtime.skill?.available);
+  nativeEnglishReviewAvailable = Boolean(runtime.available && skillReady);
+  novelNativeReviewInput.disabled = !nativeEnglishReviewAvailable;
+  const fullyReady = Boolean(
+    nativeEnglishReviewAvailable && runtime.harper?.available && runtime.readability?.available
+  );
+  const state = fullyReady ? "ready" : (nativeEnglishReviewAvailable ? "warning" : "error");
+  novelReviewBadge.className = `novel-skill-badge ${state}`;
+  novelReviewBadge.textContent = fullyReady
+    ? "NATIVE QA READY"
+    : (nativeEnglishReviewAvailable ? "NATIVE QA CORE" : "NATIVE QA UNAVAILABLE");
+  if (!nativeEnglishReviewAvailable) {
+    novelReviewMeta.textContent = runtime.reason || runtime.skill?.reason || "英语质检 Skill 或审稿模型不可用";
+    novelReviewMeta.title = runtime.skill?.path || "";
+    return;
+  }
+  const harper = runtime.harper?.available ? "Harper CLI" : "内置地区检查";
+  const readability = runtime.readability?.available ? "内置可读性 v2" : "可读性不可用";
+  novelReviewMeta.textContent = `${runtime.review_model || "独立审稿模型"} · ${harper} · ${readability}`;
+  novelReviewMeta.title = runtime.skill?.path || "";
 }
 
 async function loadPlatformAuthStatuses() {
@@ -405,6 +608,83 @@ async function startPlatformLogin(platform) {
       button.disabled = false;
     }
   }
+}
+
+async function checkBilibiliEntitlement() {
+  const source = sourceInput.value.trim();
+  if (!source || !/(?:bilibili\.com|b23\.tv|BV[0-9A-Za-z]+)/i.test(source)) {
+    bilibiliEntitlementStatus.textContent = "请先输入可识别的B站视频或内容季链接。";
+    return;
+  }
+  bilibiliEntitlementButton.disabled = true;
+  bilibiliEntitlementStatus.textContent = "正在分别检查账号、作品访问条件和建议采集方案...";
+  try {
+    const response = await fetch("/api/bilibili/entitlement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "权限检测失败");
+    const eligible = payload.viewing_eligible === true
+      ? "已通过"
+      : payload.viewing_eligible === false
+        ? "未通过"
+        : "无法确认";
+    const media = payload.official_subtitle_available === true
+      ? "已有官方字幕"
+      : payload.media_stream_available === true
+      ? "可直接下载"
+      : payload.media_stream_available === false
+        ? "没有可下载流"
+        : "将在任务中探测";
+    bilibiliEntitlementStatus.textContent =
+      `账号权限：${payload.account_tier || "未知"}`
+      + `${payload.account_valid_until ? `（有效至 ${payload.account_valid_until}）` : ""}`
+      + `；内容权限：${entitlementRequirementLabel(payload.content_requirement)}，${eligible}`
+      + `；直接下载：${media}`
+      + `；建议方案：${acquisitionStrategyLabel(payload.recommended_strategy)}。`;
+  } catch (error) {
+    bilibiliEntitlementStatus.textContent = error.message || "权限检测失败。";
+  } finally {
+    bilibiliEntitlementButton.disabled = false;
+  }
+}
+
+async function stopPlaybackCapture() {
+  if (!activeJobId) return;
+  stopCaptureButton.disabled = true;
+  try {
+    const response = await fetch(
+      `/api/jobs/${activeJobId}/stop-capture`,
+      { method: "POST" },
+    );
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "无法停止录制");
+    stopCaptureButton.textContent = "正在停止...";
+  } catch (error) {
+    setLog(`${logBox.textContent}\n\n${error.message || "无法停止录制。"}`);
+    stopCaptureButton.disabled = false;
+  }
+}
+
+function entitlementRequirementLabel(value) {
+  return {
+    public: "公开内容",
+    vip: "大会员专享",
+    purchase: "需单独购买",
+  }[value] || value || "未知";
+}
+
+function acquisitionStrategyLabel(value) {
+  return {
+    platform_auto: "平台自动采集",
+    platform_subtitle: "官方字幕",
+    direct_download: "直接下载",
+    browser_playback_capture: "本地播放采集",
+    manual_import: "人工导入",
+    local_file: "本地文件",
+  }[value] || value || "未知";
 }
 
 function renderPlatformAuthStatus(platform, payload) {
@@ -509,6 +789,495 @@ function renderServerUpgradeRequired() {
   `;
 }
 
+function productionPayload() {
+  return {
+    production_mode: productionModeSelect.value,
+    video_id: productionSourceSelect.value,
+    title: productionTitleInput.value.trim(),
+    script: productionScriptInput.value.trim(),
+    voice: productionVoiceSelect.value,
+    tts_rate: productionRateSelect.value,
+    platform: productionPlatformSelect.value,
+    target_seconds: Number(productionTargetInput.value || 60),
+    fps: Number(productionFpsSelect.value || 30),
+    burn_subtitles: productionSubtitleInput.checked,
+  };
+}
+
+async function loadProductionWorkspace() {
+  const productionActive = Boolean(productionJobId);
+  productionRefreshButton.disabled = true;
+  try {
+    const [sourcesResponse, runtimeResponse] = await Promise.all([
+      fetch("/api/production/sources", { cache: "no-store" }),
+      fetch("/api/production/runtime", { cache: "no-store" }),
+    ]);
+    const sourcesPayload = await sourcesResponse.json();
+    const runtime = await runtimeResponse.json();
+    if (!sourcesResponse.ok) {
+      throw new Error(sourcesPayload.error || "读取研究视频失败。");
+    }
+    if (!runtimeResponse.ok) {
+      throw new Error(runtime.error || "读取视频生产运行时失败。");
+    }
+    productionSources = sourcesPayload.sources || [];
+    const previous = productionSourceSelect.value;
+    productionSourceSelect.innerHTML = productionSources.length
+      ? productionSources.map((item) => `
+          <option value="${escapeHtml(item.video_id)}">
+            ${item.source_video_ready && item.subtitle_ready ? "●" : "○"}
+            ${escapeHtml(item.title || item.video_id)}
+          </option>
+        `).join("")
+      : `<option value="">暂无可用研究视频</option>`;
+    if (productionSources.some((item) => item.video_id === previous)) {
+      productionSourceSelect.value = previous;
+    }
+    productionSourceHint.classList.remove("error");
+    productionScriptHint.classList.remove("error");
+    renderProductionRuntime(runtime);
+    updateProductionSourceState();
+  } catch (error) {
+    productionSourceHint.textContent = error.message || "视频生产状态加载失败。";
+    productionSourceHint.classList.add("error");
+    productionRuntime = null;
+    productionScriptHint.textContent = error.message || "视频生产状态加载失败。";
+    productionScriptHint.classList.add("error");
+    updateProductionSourceState();
+  } finally {
+    productionRefreshButton.disabled = productionActive || Boolean(productionJobId);
+  }
+}
+
+function renderProductionRuntime(runtime) {
+  productionRuntime = runtime;
+  const ffmpegReady = Boolean(runtime.ffmpeg?.available);
+  const nvencReady = Boolean(runtime.ffmpeg?.nvenc_validated);
+  productionFfmpegBadge.className =
+    `production-runtime-badge ${ffmpegReady ? "ready" : "warning"}`;
+  productionFfmpegBadge.textContent = ffmpegReady
+    ? "FFmpeg READY"
+    : "FFmpeg UNAVAILABLE";
+  productionGpuBadge.className =
+    `production-runtime-badge ${nvencReady ? "ready" : "warning"}`;
+  productionGpuBadge.textContent = nvencReady
+    ? "NVENC VERIFIED"
+    : "CPU FALLBACK";
+  const capcutReady = Boolean(runtime.capcut?.available);
+  productionCapcutBadge.className =
+    `production-runtime-badge ${capcutReady ? "ready" : "warning"}`;
+  productionCapcutBadge.textContent = capcutReady
+    ? "CAPCUT READY"
+    : runtime.capcut?.running
+      ? "CLOSE CAPCUT TO BUILD"
+      : "CAPCUT OFFLINE";
+  const scriptRuntime = runtime.script_video || {};
+  const ttsEngine = scriptRuntime.tts?.engine === "windows-sapi-com"
+    ? "WINDOWS SAPI"
+    : "EDGE TTS";
+  productionScriptHint.textContent = scriptRuntime.available
+    ? `${scriptRuntime.visuals?.cover_count || 0} 张蒸馏封面静帧可检索 · ${ttsEngine} READY · CapCut 草稿自动生成 · 无需手动导入素材`
+    : scriptRuntime.capcut?.running
+      ? "请先正常关闭 CapCut，再创建新草稿。"
+      : "文稿工厂运行时不完整，请检查旁白、FFmpeg、FFprobe 和 CapCut。";
+}
+
+function updateProductionMode() {
+  const scriptMode = productionModeSelect.value === "script";
+  productionScriptFields.hidden = !scriptMode;
+  productionClipFields.hidden = scriptMode;
+  const subtitleField = productionSubtitleInput.closest("label");
+  subtitleField.hidden = scriptMode;
+  productionTargetField.hidden = scriptMode;
+  productionEngineField.hidden = scriptMode;
+  productionScriptInput.disabled = !scriptMode;
+  productionScriptInput.required = scriptMode;
+  productionTitleInput.disabled = !scriptMode;
+  productionVoiceSelect.disabled = !scriptMode;
+  productionRateSelect.disabled = !scriptMode;
+  productionSourceSelect.disabled = scriptMode;
+  productionSourceSelect.required = !scriptMode;
+  productionTargetInput.disabled = scriptMode;
+  productionSubtitleInput.disabled = scriptMode;
+  productionPlanPreview.innerHTML = scriptMode
+    ? `<div class="empty-state">输入文稿后可预览粗分镜；正式任务会以 TTS 真实时长重新生成。</div>`
+    : `<div class="empty-state">选择研究视频后生成计划；所有保留区间、评分依据和字幕重排都会写入 JSON。</div>`;
+  productionPlanMeta.textContent = "尚未生成";
+  updateProductionSourceState();
+}
+
+function updateProductionSourceState() {
+  const productionActive = Boolean(productionJobId);
+  productionModeSelect.disabled = productionActive;
+  productionRefreshButton.disabled = productionActive;
+  productionScriptInput.readOnly = productionActive;
+  productionTitleInput.readOnly = productionActive;
+  productionVoiceSelect.disabled = productionActive
+    || productionModeSelect.value !== "script";
+  productionRateSelect.disabled = productionActive
+    || productionModeSelect.value !== "script";
+  productionSourceSelect.disabled = productionActive
+    || productionModeSelect.value === "script";
+  productionPlatformSelect.disabled = productionActive;
+  productionFpsSelect.disabled = productionActive;
+  productionTargetInput.disabled = productionActive
+    || productionModeSelect.value === "script";
+  productionSubtitleInput.disabled = productionActive
+    || productionModeSelect.value === "script";
+  if (!productionActive) {
+    productionScriptInput.readOnly = false;
+    productionTitleInput.readOnly = false;
+  }
+  if (productionModeSelect.value === "script") {
+    const length = productionScriptInput.value.trim().length;
+    const ready = length >= 20;
+    const runtimeReady = Boolean(productionRuntime?.script_video?.available);
+    const runtimeFailed = productionScriptHint.classList.contains("error");
+    if (runtimeFailed) {
+      // Preserve the actionable workspace loading error until a refresh succeeds.
+    } else if (!ready) {
+      productionScriptHint.textContent = `还需要 ${Math.max(0, 20 - length)} 个字符才能开始。`;
+    } else if (!runtimeReady) {
+      productionScriptHint.textContent = productionRuntime?.capcut?.running
+        ? `${length} 个字符 · 请先正常关闭 CapCut，再创建新草稿。`
+        : `${length} 个字符 · 可预览分镜；旁白、渲染或 CapCut 运行时尚未就绪。`;
+    } else {
+      productionScriptHint.textContent = `${length} 个字符 · 可生成旁白、分镜、独立字幕、预览和 CapCut 草稿`;
+    }
+    productionPlanButton.disabled = !ready || productionActive;
+    productionRenderButton.disabled = !ready || !runtimeReady || productionActive;
+    return;
+  }
+  const source = productionSources.find(
+    (item) => item.video_id === productionSourceSelect.value,
+  );
+  if (!source) {
+    productionSourceHint.textContent = "没有找到已经完成分析的视频。";
+    productionPlanButton.disabled = true;
+    productionRenderButton.disabled = true;
+    return;
+  }
+  const status = [];
+  status.push(source.source_video_ready ? "源视频就绪" : "缺少本地源视频");
+  status.push(source.subtitle_ready ? "时间轴字幕就绪" : "缺少有效时间轴字幕");
+  if (productionRuntime?.capcut?.running) {
+    status.push("请先关闭 CapCut");
+  } else if (!productionRuntime?.capcut?.available) {
+    status.push("CapCut 草稿环境不可用");
+  }
+  if (source.duration_seconds) {
+    status.push(`原片 ${formatDuration(source.duration_seconds)}`);
+  }
+  productionSourceHint.textContent = `${source.video_id} · ${status.join(" · ")}`;
+  const ready = source.source_video_ready && source.subtitle_ready;
+  productionPlanButton.disabled = !ready || productionActive;
+  productionRenderButton.disabled = !ready
+    || !productionRuntime?.capcut?.available
+    || !productionRuntime?.ffmpeg?.available
+    || !productionRuntime?.ffprobe?.available
+    || productionActive;
+}
+
+async function requestProductionPlan() {
+  const payload = productionPayload();
+  const scriptMode = payload.production_mode === "script";
+  if (productionJobId
+      || (scriptMode ? payload.script.length < 20 : !payload.video_id)) return;
+  productionPlanButton.disabled = true;
+  productionPlanMeta.textContent = "正在计算…";
+  productionPlanPreview.innerHTML =
+    `<div class="empty-state">正在评估字幕密度、开头钩子和结尾收束信号。</div>`;
+  try {
+    const response = await fetch(
+      scriptMode ? "/api/production/script-plan" : "/api/production/plan",
+      {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      },
+    );
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || "自动剪辑计划生成失败。");
+    }
+    renderProductionPlan(result.plan, result.capability_plan);
+  } catch (error) {
+    productionPlanMeta.textContent = "生成失败";
+    productionPlanPreview.innerHTML =
+      `<div class="empty-state">${escapeHtml(error.message || "自动剪辑计划生成失败。")}</div>`;
+  } finally {
+    updateProductionSourceState();
+  }
+}
+
+function renderProductionPlan(plan, capabilityPlan = null) {
+  const segments = plan.segments || [];
+  if (plan.strategy === "distilled_rules_narrated_storyboard") {
+    const scenes = plan.scenes || [];
+    const inputs = plan.decision_inputs || {};
+    const roleLabels = {
+      hook: "钩子",
+      setup: "铺垫",
+      development: "展开",
+      payoff: "回报",
+    };
+    const confidenceLabels = {
+      high: "高",
+      medium: "中",
+      low: "低",
+      fallback: "兜底",
+    };
+    productionPlanMeta.textContent =
+      `${scenes.length} 个静帧镜头 · ${inputs.matched_scene_count || 0} 个素材镜头 · ${inputs.unique_matched_asset_count || 0} 张相关封面 · ${inputs.fallback_scene_count || 0} 个安全兜底`;
+    productionPlanPreview.innerHTML = `
+      <div class="production-plan-summary">
+        <div class="production-plan-metric"><span>预计成片</span><strong>${Math.round(plan.output_duration_seconds || 0)}s</strong></div>
+        <div class="production-plan-metric"><span>镜头数</span><strong>${scenes.length}</strong></div>
+        <div class="production-plan-metric"><span>素材镜头</span><strong>${Number(inputs.matched_scene_count || 0)}</strong></div>
+        <div class="production-plan-metric"><span>相关封面</span><strong>${Number(inputs.unique_matched_asset_count || 0)}</strong></div>
+        <div class="production-plan-metric"><span>OpenCLIP 封面</span><strong>${Number(inputs.openclip_asset_count || 0)}</strong></div>
+        <div class="production-plan-metric"><span>Agent</span><strong>不需要</strong></div>
+      </div>
+      ${renderCapabilityProposal(plan.capability_plan || capabilityPlan)}
+      ${renderCapabilityExecution(plan.capability_execution)}
+      <div class="production-segment-list">
+        ${scenes.slice(0, 12).map((scene) => `
+          <article class="production-segment">
+            <div class="production-segment-time">${formatDuration(scene.output_start_seconds)} → ${formatDuration(scene.output_end_seconds)}</div>
+            <div class="production-segment-copy">
+              <strong>${escapeHtml(scene.visual?.source_title || "本地背景兜底")}</strong>
+              <p>${escapeHtml(scene.script_excerpt || "")}</p>
+              <div class="production-reasons">
+                <span>${escapeHtml(roleLabels[scene.narrative_role] || "展开")}</span>
+                <span>${escapeHtml(confidenceLabels[scene.visual?.match_confidence] || "兜底")}置信度</span>
+                <span>匹配分 ${Number(scene.visual?.match_score || 0)}</span>
+                <span>${escapeHtml(scene.visual?.match_scope === "script" ? "全文主题" : scene.visual?.match_scope === "scene" ? "当前旁白" : "安全兜底")}</span>
+              </div>
+              <div class="production-reasons">
+                ${(scene.visual?.match_reasons || []).slice(0, 3).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("")}
+              </div>
+              ${(scene.capability_decisions || []).map((item) => `<p>${escapeHtml(item.rule_id)} · ${escapeHtml(item.name)}：${escapeHtml(item.reason)}（${item.changed ? "已调整边界" : "原分镜已满足"}）</p>`).join("")}
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    `;
+    return;
+  }
+  const inputs = plan.decision_inputs || {};
+  const decisionSignals = [
+    inputs.analysis_ready ? "内容结构" : null,
+    inputs.enrichment_ready ? "V3增强" : null,
+    (inputs.scene_boundaries || []).length ? "场景边界" : null,
+    Object.keys(inputs.audio_rhythm || {}).length ? "音频节奏" : null,
+    (inputs.visual_labels || []).length ? "视觉语义" : null,
+  ].filter(Boolean);
+  productionPlanMeta.textContent =
+    `${segments.length} 个保留区间 · ${Math.round(plan.output_duration_seconds || 0)} 秒 · ${decisionSignals.length} 类研究信号`;
+  productionPlanPreview.innerHTML = `
+    <div class="production-plan-summary">
+      <div class="production-plan-metric">
+        <span>目标时长</span>
+        <strong>${Math.round(plan.target_seconds || 0)}s</strong>
+      </div>
+      <div class="production-plan-metric">
+        <span>预计成片</span>
+        <strong>${Math.round(plan.output_duration_seconds || 0)}s</strong>
+      </div>
+      <div class="production-plan-metric">
+        <span>选择评分</span>
+        <strong>${Number(plan.selection_score || 0).toFixed(1)}</strong>
+      </div>
+      <div class="production-plan-metric">
+        <span>排除字幕</span>
+        <strong>${Number(plan.excluded_caption_count || 0)}</strong>
+      </div>
+    </div>
+    <div class="production-reasons">
+      ${decisionSignals.map((signal) =>
+        `<span>已使用 ${escapeHtml(signal)}</span>`).join("")}
+    </div>
+    <div class="production-segment-list">
+      ${segments.map((segment) => `
+        <article class="production-segment">
+          <div class="production-segment-time">
+            ${formatDuration(segment.source_start_seconds)}
+            → ${formatDuration(segment.source_end_seconds)}
+          </div>
+          <div class="production-segment-copy">
+            <strong>${escapeHtml(segment.purpose || "保留片段")}</strong>
+            <p>${escapeHtml(segment.text_preview || "")}</p>
+            <div class="production-reasons">
+              ${(segment.reasons || []).map((reason) =>
+                `<span>${escapeHtml(reason)}</span>`).join("")}
+            </div>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderCapabilityExecution(execution) {
+  if (!execution) return "";
+  const applied = execution.applied || [];
+  return `<section class="production-capability-guidance">
+    <strong>实际分镜决策</strong>
+    <p>采用 ${applied.length} 项候选能力，调整 ${Number(execution.changed_boundary_count || 0)} 处边界；旁白未改写。时间依据：${execution.timing_source === "tts_cue_interpolated" ? "TTS 字幕对齐估算" : "文稿长度估算"}。</p>
+    ${applied.length ? "" : "<p>当前没有适合自动执行的候选，保留基础分镜。</p>"}
+    ${(execution.warnings || []).map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}
+    <details><summary>查看采用 / 未采用的原因</summary><ul>
+    ${[...applied.map((item) => ({ ...item, decision: "采用" })), ...(execution.not_applied || []).map((item) => ({ ...item, decision: "未采用" }))].map((item) => `<li>${escapeHtml(item.decision)} ${escapeHtml(item.rule_id)} · ${escapeHtml(item.name)}：${escapeHtml(item.reason)}</li>`).join("")}
+    </ul></details>
+  </section>`;
+}
+
+function renderCapabilityProposal(plan) {
+  if (!plan) {
+    return `<div class="empty-state">创作能力候选暂不可用；不影响分镜预览。</div>`;
+  }
+  const selections = plan.selections || [];
+  if (!selections.length) {
+    return `<div class="empty-state">当前文稿没有匹配到知识库能力候选；这不会影响分镜预览。</div>`;
+  }
+  const layerLabels = {
+    opening: "开场",
+    narrative_structure: "叙事结构",
+    transition: "转场",
+    climax: "高潮",
+    ending: "结尾",
+    workflow: "工作流",
+  };
+  return `
+    <section class="production-capability-guidance">
+      <strong>知识库能力候选</strong>
+      <p>以下是按文稿匹配出的创作思路，不是硬性规则，不会自动改写文稿。</p>
+      <div class="production-reasons">
+        ${selections.map((selection) => {
+          const primary = selection.primary || {};
+          const secondary = selection.secondary || [];
+          const names = [primary.name, ...secondary.map((item) => item.name)]
+            .filter(Boolean)
+            .map(escapeHtml);
+          return `<span>${escapeHtml(layerLabels[selection.layer] || selection.layer)}：${names.join(" / ")}</span>`;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+async function startProductionJob(event) {
+  event.preventDefault();
+  const payload = productionPayload();
+  const scriptMode = payload.production_mode === "script";
+  if ((scriptMode ? payload.script.length < 20 : !payload.video_id)
+      || productionRenderButton.disabled) return;
+  productionJobId = "creating";
+  updateProductionSourceState();
+  productionRenderButton.disabled = true;
+  productionPlanButton.disabled = true;
+  productionCancelButton.hidden = true;
+  productionJobBadge.className = "badge running";
+  productionJobBadge.textContent = "创建任务";
+  setProductionProgress(3, "正在创建视频生产任务");
+  productionJobLog.textContent = "正在写入持久任务队列…";
+  resetProductionFiles("正在创建新任务，输出文件将在完成后显示。");
+  try {
+    const response = await fetch(
+      scriptMode ? "/api/production/script-render" : "/api/production/render",
+      {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      },
+    );
+    const job = await response.json();
+    if (!response.ok) {
+      throw new Error(job.error || "视频生产任务创建失败。");
+    }
+    productionJobId = job.id;
+    watchJob(job.id);
+  } catch (error) {
+    if (productionJobId === "creating") productionJobId = null;
+    productionJobBadge.className = "badge failed";
+    productionJobBadge.textContent = "创建失败";
+    productionJobLog.textContent = error.message || "视频生产任务创建失败。";
+    updateProductionSourceState();
+  }
+}
+
+function setProductionProgress(value, stage = "") {
+  const normalized = Math.max(0, Math.min(100, Number(value) || 0));
+  productionProgressBar.style.width = `${normalized}%`;
+  productionProgressPercent.textContent = `${Math.round(normalized)}%`;
+  productionStage.textContent = stage || "等待开始";
+  productionProgressTrack.setAttribute(
+    "aria-valuenow",
+    String(Math.round(normalized)),
+  );
+}
+
+function renderProductionJob(job) {
+  const isProduction = ["video_production", "script_video"].includes(
+    job.payload?.mode,
+  );
+  if (!isProduction) {
+    productionCancelButton.hidden = true;
+    return;
+  }
+  productionJobBadge.className = `badge ${job.status || "idle"}`;
+  productionJobBadge.textContent = statusLabel(job);
+  const active = ["queued", "running"].includes(job.status);
+  if (active) {
+    if (productionJobId !== job.id) {
+      resetProductionFiles("任务正在运行，输出文件将在完成后显示。");
+    }
+    productionJobId = job.id;
+  } else if (productionJobId === job.id) {
+    productionJobId = null;
+  }
+  productionCancelButton.hidden = !active;
+  productionCancelButton.disabled = Boolean(job.cancel_requested);
+  productionCancelButton.textContent = job.cancel_requested
+    ? "正在取消…"
+    : job.status === "queued"
+      ? "取消排队"
+      : "取消任务";
+  updateProductionSourceState();
+  setProductionProgress(job.progress || 0, progressStageLabel(job));
+  productionJobLog.textContent = (job.logs || []).join("\n\n");
+  productionJobLog.scrollTop = productionJobLog.scrollHeight;
+  if (job.status === "failed") {
+    productionFiles.classList.remove("empty");
+    productionFiles.innerHTML =
+      `<div class="empty-state">${escapeHtml(job.error || "视频生产失败。")}</div>`;
+  } else if (job.status === "cancelled") {
+    productionFiles.classList.remove("empty");
+    productionFiles.innerHTML =
+      `<div class="empty-state cancelled-state">任务已安全取消；不完整的临时成片已清理，研究包和剪辑计划会保留。</div>`;
+  } else if (job.status === "done" && job.result) {
+    renderProductionFiles(job.result.files || []);
+  }
+}
+
+function resetProductionFiles(message) {
+  productionFiles.classList.add("empty");
+  productionFiles.innerHTML =
+    `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+function renderProductionFiles(files) {
+  productionFiles.classList.remove("empty");
+  productionFiles.innerHTML = files.length
+    ? files.map((file) => `
+        <a class="file-link" href="${file.url}" target="_blank" rel="noreferrer">
+          <span class="file-title">${escapeHtml(file.label)}</span>
+          <span class="file-path">${escapeHtml(file.path)}</span>
+        </a>
+      `).join("")
+    : `<div class="empty-state">任务完成，但没有生成可展示文件。</div>`;
+}
+
 async function startSystemJob(endpoint, fallbackError) {
   navItems[0].click();
   const response = await fetch(endpoint, { method: "POST" });
@@ -522,6 +1291,7 @@ async function startSystemJob(endpoint, fallbackError) {
 
 async function createJob(payload) {
   startButton.disabled = true;
+  cancelJobButton.hidden = true;
   setBadge("running", "创建任务");
   setProgress(3);
   setLog("正在创建任务...");
@@ -542,40 +1312,68 @@ async function createJob(payload) {
 
 function watchJob(jobId) {
   activeJobId = jobId;
+  const generation = ++pollGeneration;
   clearInterval(pollTimer);
-  pollJob();
-  pollTimer = setInterval(pollJob, 750);
+  pollJob(jobId, generation);
+  pollTimer = setInterval(() => pollJob(jobId, generation), 750);
 }
 
-async function pollJob() {
-  if (!activeJobId || pollInFlight) return;
-  pollInFlight = true;
+function resumeProductionWatch(jobId) {
+  if (!jobId || jobId === "creating") return;
+  activeJobId = jobId;
+  const generation = ++pollGeneration;
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => pollJob(jobId, generation), 750);
+}
+
+async function pollJob(jobId = activeJobId, generation = pollGeneration) {
+  if (!jobId || generation !== pollGeneration) return;
+  const requestKey = `${generation}:${jobId}`;
+  if (pollInFlightKey === requestKey) return;
+  pollInFlightKey = requestKey;
   try {
-    const response = await fetch(`/api/jobs/${activeJobId}`, {
+    const response = await fetch(`/api/jobs/${jobId}`, {
       cache: "no-store",
     });
     const job = await response.json();
+    if (generation !== pollGeneration || jobId !== activeJobId) return;
     if (!response.ok) {
       clearInterval(pollTimer);
       setBadge("failed", "任务丢失");
       return;
     }
     renderJob(job);
-    if (job.status === "done" || job.status === "failed") {
+    if (["done", "failed", "cancelled"].includes(job.status)) {
       clearInterval(pollTimer);
       startButton.disabled = false;
+      if (["video_production", "script_video"].includes(job.payload?.mode)) {
+        if (productionJobId === job.id) productionJobId = null;
+        productionCancelButton.hidden = true;
+        updateProductionSourceState();
+      }
       loadHistory();
     }
   } catch (error) {
-    setBadge("running", "连接恢复中");
+    if (generation === pollGeneration && jobId === activeJobId) {
+      setBadge("running", "连接恢复中");
+    }
   } finally {
-    pollInFlight = false;
+    if (pollInFlightKey === requestKey) pollInFlightKey = null;
   }
 }
 
 function renderJob(job) {
+  renderProductionJob(job);
   setBadge(job.status, statusLabel(job));
-  setProgress(job.progress || 0, job.stage || "");
+  const active = ["queued", "running"].includes(job.status);
+  cancelJobButton.hidden = !active;
+  cancelJobButton.disabled = Boolean(job.cancel_requested);
+  cancelJobButton.textContent = job.cancel_requested
+    ? "正在取消…"
+    : job.status === "queued"
+      ? "取消排队"
+      : "取消任务";
+  setProgress(job.progress || 0, progressStageLabel(job));
   renderWhisperProgress(job);
   setTimeline(job.stage || "");
   setLog((job.logs || []).join("\n\n"));
@@ -584,14 +1382,58 @@ function renderJob(job) {
     resultList.classList.remove("empty");
     resultList.innerHTML = `<div class="empty-state">${escapeHtml(job.error || "未知错误")}</div>`;
   }
+  if (job.status === "cancelled") {
+    resultMeta.textContent = "任务已取消";
+    resultList.classList.remove("empty");
+    resultList.innerHTML = `<div class="empty-state cancelled-state">任务已安全取消；已完成的缓存会保留，重新提交时可继续复用。</div>`;
+  }
   if (job.status === "done" && job.result) {
     renderFiles(job.result.files || []);
     const summary = [];
     if (job.result.type === "report") summary.push("V4报告");
+    if (job.result.capcut_draft_path) summary.push("CapCut 草稿就绪");
+    else if (job.result.type === "video_production") summary.push("自动成片");
     if (job.result.type === "advanced_knowledge") summary.push("知识系统已更新");
+    if (job.result.type === "novel_writing") {
+      summary.push(job.result.operation_label || "小说创作");
+      summary.push(job.result.output_language_label || "简体中文");
+      summary.push(`${job.result.output_length || job.result.output_chars || 0} ${job.result.length_unit || "字"}`);
+      if (job.result.skill?.fingerprint) {
+        summary.push(`Skill ${job.result.skill.fingerprint}`);
+      }
+      if (job.result.native_review) {
+        const review = job.result.native_review;
+        const decisionLabels = {
+          "native-ready": "母语级通过",
+          revise: "建议再修订",
+          rewrite: "建议重写",
+        };
+        summary.push(`英语质检 ${review.score}/100`);
+        summary.push(decisionLabels[review.decision] || review.decision);
+        if (review.revised) summary.push("已自动修订并复检");
+      }
+    }
     if (job.result.success_count !== undefined) summary.push(`成功 ${job.result.success_count}`);
     if (job.result.failure_count !== undefined) summary.push(`失败 ${job.result.failure_count}`);
+    if (job.result.learning_status === "complete") {
+      summary.unshift(job.result.platform === "bilibili" ? "该UP已学习完毕" : "该创作者已学习完毕");
+    } else if (job.result.learning_status === "complete_after_batch") {
+      summary.unshift(job.result.platform === "bilibili" ? "该UP现已学习完毕" : "该创作者现已学习完毕");
+    } else if (job.result.learning_status === "no_unseen_candidates") {
+      summary.unshift("当前未发现可学习的新视频");
+    } else if (Number(job.result.skipped_existing_count) > 0) {
+      summary.push(`跳过已学习 ${job.result.skipped_existing_count}`);
+    }
     if (job.result.video_id) summary.push(job.result.video_id);
+    if (job.result.acquisition) {
+      const acquisition = job.result.acquisition;
+      const assessment = acquisition.assessment || {};
+      if (assessment.account_tier) summary.push(`账号 ${assessment.account_tier}`);
+      if (assessment.content_requirement) {
+        summary.push(`内容 ${entitlementRequirementLabel(assessment.content_requirement)}`);
+      }
+      summary.push(`采集 ${acquisitionStrategyLabel(acquisition.selected_strategy)}`);
+    }
     if ((job.result.warnings || []).length) {
       setLog(`${(job.logs || []).join("\n\n")}\n\n提示：\n${job.result.warnings.join("\n")}`);
       summary.push(`${job.result.warnings.length} 条降级提示`);
@@ -600,6 +1442,123 @@ function renderJob(job) {
     if (job.result.type === "advanced_knowledge") {
       loadKnowledgeStatus();
     }
+  }
+}
+
+function progressStageLabel(job) {
+  const stage = job.stage || "等待任务开始";
+  const detail = job.progress_detail || {};
+  const nowSeconds = Date.now() / 1000;
+  if (job.cancel_requested && job.status === "running") {
+    const requestedAt = Number(job.cancel_requested_at);
+    const waited = Number.isFinite(requestedAt)
+      ? Math.max(0, nowSeconds - requestedAt)
+      : 0;
+    return `正在取消 · 已等待 ${formatDuration(waited)}`;
+  }
+  if (job.status !== "running") return stage;
+
+  const startedAt = Number(job.started_at);
+  const elapsed = Number.isFinite(startedAt)
+    ? Math.max(0, nowSeconds - startedAt)
+    : 0;
+  if (detail.type === "batch") {
+    const current = Number(detail.current || 0);
+    const total = Number(detail.total || 0);
+    if (total > 0) {
+      return `${stage} · ${current}/${total} · 已运行 ${formatDuration(elapsed)}`;
+    }
+  }
+  if (detail.type === "text_generation") {
+    const generated = Number(detail.generated_units || detail.generated_chars || 0);
+    const target = Number(detail.target_units || detail.target_chars || 0);
+    const unit = detail.unit_label || "字";
+    const parts = [stage];
+    if (target > 0) parts.push(`${generated}/${target} ${unit}`);
+    else if (generated > 0) parts.push(`${generated} ${unit}`);
+    parts.push(`已运行 ${formatDuration(elapsed)}`);
+    return parts.join(" · ");
+  }
+  if (detail.type === "download") {
+    const downloaded = Number(detail.downloaded_bytes || 0);
+    const total = Number(detail.total_bytes || 0);
+    const speed = Number(detail.speed_bytes_per_second || 0);
+    const phase = Number(detail.phase_percent);
+    const parts = [stage];
+    if (Number.isFinite(phase)) parts.push(`${phase.toFixed(1)}%`);
+    if (total > 0) {
+      parts.push(`${formatBytes(downloaded)}/${formatBytes(total)}`);
+    } else if (downloaded > 0) {
+      parts.push(formatBytes(downloaded));
+    }
+    if (speed > 0) parts.push(`${formatBytes(speed)}/s`);
+    parts.push(`已运行 ${formatDuration(elapsed)}`);
+    return parts.join(" · ");
+  }
+  return `${stage} · 已运行 ${formatDuration(elapsed)}`;
+}
+
+async function cancelActiveJob() {
+  if (!activeJobId || cancelJobButton.disabled) return;
+  if (!window.confirm("确认取消当前任务？已完成的缓存会保留。")) return;
+
+  cancelJobButton.disabled = true;
+  cancelJobButton.textContent = "正在取消…";
+  try {
+    const response = await fetch(`/api/jobs/${activeJobId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (payload.job) renderJob(payload.job);
+      throw new Error(payload.error || "取消任务失败。");
+    }
+    renderJob(payload);
+    if (payload.status === "cancelled") {
+      clearInterval(pollTimer);
+      startButton.disabled = false;
+      updateProductionSourceState();
+      loadHistory();
+    }
+  } catch (error) {
+    cancelJobButton.disabled = false;
+    cancelJobButton.textContent = "重试取消";
+    setLog(`${logBox.textContent}\n\n${error.message || "取消任务失败。"}`);
+  }
+}
+
+async function cancelProductionJob() {
+  if (!productionJobId || productionJobId === "creating"
+      || productionCancelButton.disabled) return;
+  if (!window.confirm("确认取消当前视频生产任务？已完成的缓存会保留。")) return;
+  const jobId = productionJobId;
+  productionCancelButton.disabled = true;
+  productionCancelButton.textContent = "正在取消…";
+  try {
+    const response = await fetch(`/api/jobs/${jobId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (payload.job) renderProductionJob(payload.job);
+      throw new Error(payload.error || "取消视频生产任务失败。");
+    }
+    renderProductionJob(payload);
+    watchJob(jobId);
+    if (payload.status === "cancelled") {
+      productionJobId = null;
+      updateProductionSourceState();
+      loadHistory();
+    }
+  } catch (error) {
+    productionCancelButton.disabled = false;
+    productionCancelButton.textContent = "重试取消";
+    productionJobLog.textContent =
+      `${productionJobLog.textContent}\n\n${error.message || "取消视频生产任务失败。"}`;
   }
 }
 
@@ -622,9 +1581,37 @@ function renderFiles(files) {
 }
 
 async function loadHistory() {
-  const response = await fetch("/api/jobs");
-  const payload = await response.json();
+  let response;
+  let payload;
+  try {
+    response = await fetch("/api/jobs", { cache: "no-store" });
+    payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "任务历史读取失败。");
+  } catch (error) {
+    historyList.innerHTML =
+      `<div class="empty-state">${escapeHtml(error.message || "任务历史读取失败。")}</div>`;
+    return;
+  }
   const jobs = payload.jobs || [];
+  const activeProductionJob = jobs
+    .slice()
+    .reverse()
+    .find((job) => (
+      ["queued", "running"].includes(job.status)
+      && ["video_production", "script_video"].includes(job.payload?.mode)
+    ));
+  if (activeProductionJob) {
+    if (!productionJobId) {
+      productionJobId = activeProductionJob.id;
+      resetProductionFiles("已恢复正在执行的任务，输出文件将在完成后显示。");
+      watchJob(activeProductionJob.id);
+    }
+  } else if (productionJobId && productionJobId !== "creating") {
+    const trackedJob = jobs.find((job) => job.id === productionJobId);
+    if (trackedJob && ["done", "failed", "cancelled"].includes(trackedJob.status)) {
+      renderProductionJob(trackedJob);
+    }
+  }
   if (!jobs.length) {
     historyList.innerHTML = `<div class="empty-state">暂无任务记录。</div>`;
     return;
@@ -633,7 +1620,10 @@ async function loadHistory() {
     .slice()
     .reverse()
     .map((job) => {
-      const source = job.payload?.source || job.payload?.mode || "";
+      const source = job.payload?.video_id
+        || job.payload?.source
+        || job.payload?.mode
+        || "";
       return `
         <button class="history-item" type="button" data-job-id="${job.id}">
           <span class="history-title">${escapeHtml(statusLabel(job))}</span>
@@ -644,8 +1634,14 @@ async function loadHistory() {
     .join("");
   historyList.querySelectorAll("[data-job-id]").forEach((item) => {
     item.addEventListener("click", () => {
+      const selectedJob = jobs.find((job) => job.id === item.dataset.jobId);
       watchJob(item.dataset.jobId);
-      navItems[0].click();
+      const targetPanel = ["video_production", "script_video"].includes(
+        selectedJob?.payload?.mode,
+      )
+        ? "productionPanel"
+        : "runPanel";
+      document.querySelector(`[data-panel="${targetPanel}"]`)?.click();
     });
   });
 }
@@ -675,11 +1671,103 @@ async function loadKnowledgeStatus() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     renderKnowledgeStatus(payload);
+    await loadKnowledgeRules();
   } catch (error) {
     knowledgeStatus.innerHTML = `<div class="empty-state error-state">${escapeHtml(error.message || "状态读取失败")}</div>`;
     knowledgeMeta.textContent = "知识系统状态读取失败";
   } finally {
     knowledgeRefreshButton.disabled = false;
+  }
+}
+
+async function loadKnowledgeRules() {
+  knowledgeRules.innerHTML = `<div class="empty-state loading-state">正在读取规则及样本证据...</div>`;
+  try {
+    const response = await fetch("/api/knowledge/rules", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (!payload.ready) {
+      knowledgeRules.innerHTML = `<div class="empty-state">${escapeHtml(payload.message || "规则库尚未生成。")}</div>`;
+      return;
+    }
+    renderKnowledgeRules(payload);
+  } catch (error) {
+    knowledgeRules.innerHTML = `<div class="empty-state error-state">${escapeHtml(error.message || "规则读取失败")}</div>`;
+  }
+}
+
+function renderKnowledgeRules(payload) {
+  const rules = payload.rules || [];
+  if (!rules.length) {
+    knowledgeRules.innerHTML = `<div class="empty-state">当前规则库没有规则。</div>`;
+    return;
+  }
+  const statusLabels = {
+    candidate: "候选",
+    under_review: "复核中",
+    validated: "已验证",
+    rejected: "已驳回",
+    deprecated: "已废弃",
+  };
+  knowledgeRules.innerHTML = rules.map((rule) => {
+    const evidence = rule.evidence || {};
+    const review = rule.review || {};
+    const examples = evidence.examples || [];
+    const condition = (rule.condition || []).join("；");
+    const functionText = (rule.intended_function || []).join("；");
+    const canReview = Boolean(rule.rule_id);
+    return `
+      <article class="knowledge-rule-card" data-review-token="${escapeHtml(rule.review_token || "")}">
+        <div class="knowledge-rule-title">
+          <div><strong>${escapeHtml(rule.name || rule.rule_id)}</strong><span class="muted">${escapeHtml(rule.rule_id)} · ${escapeHtml(rule.layer || "未分类")}</span></div>
+          <span class="knowledge-rule-status status-${escapeHtml(rule.status || "candidate")}">${rule.review_pending ? "待完整更新 · " : ""}${escapeHtml(statusLabels[rule.status] || rule.status || "候选")}</span>
+        </div>
+        <p>${escapeHtml(rule.definition || "")}</p>
+        <p class="muted">内容版本 ${Number(rule.content_revision || 1)}${rule.review_required_reason ? ` · ${escapeHtml(rule.review_required_reason)}` : ""}</p>
+        <div class="knowledge-rule-meta"><span>条件：${escapeHtml(condition || "未标注")}</span><span>用途：${escapeHtml(functionText || "未标注")}</span></div>
+        <details class="knowledge-rule-evidence">
+          <summary>证据：${escapeHtml(evidence.evidence_label || "无说明")} · ${Number(evidence.video_count || 0)} 条视频 / ${Number(evidence.creator_count || 0)} 位创作者 · ${Number(evidence.located_observation_count || 0)} 条有时间定位</summary>
+          ${evidence.matching_basis ? `<p>匹配依据：${escapeHtml(evidence.matching_basis)}</p>` : ""}
+          ${examples.length ? `<ul>${examples.map((item) => `<li>${escapeHtml(item.author || "未知创作者")} · ${escapeHtml(item.video_id || "无视频编号")} · ${escapeHtml(String(item.matched_signal || "样本命中"))}</li>`).join("")}</ul>` : `<p class="muted">当前没有可展示的代表样本。</p>`}
+        </details>
+        ${review.notes ? `<p class="knowledge-review-note">上次复核：${escapeHtml(review.reviewer || "未知复核人")} · ${escapeHtml(review.notes)}</p>` : ""}
+        ${canReview ? `<label class="knowledge-review-notes">复核备注<textarea data-review-notes="${escapeHtml(rule.rule_id)}" rows="2" maxlength="2000" placeholder="可记录证据是否支持定义、适用边界或反例">${escapeHtml(review.notes || "")}</textarea></label>
+          <div class="knowledge-review-actions">
+            <button type="button" class="primary-button" data-review-rule="${escapeHtml(rule.rule_id)}" data-review-status="validated">批准为已验证</button>
+            <button type="button" class="ghost-button" data-review-rule="${escapeHtml(rule.rule_id)}" data-review-status="under_review">暂缓 / 需更多证据</button>
+            <button type="button" class="ghost-button danger-button" data-review-rule="${escapeHtml(rule.rule_id)}" data-review-status="rejected">驳回</button>
+          </div>` : ""}
+      </article>`;
+  }).join("");
+}
+
+async function handleKnowledgeRuleReview(event) {
+  const button = event.target.closest("[data-review-rule]");
+  if (!button) return;
+  const reviewer = knowledgeReviewer.value.trim();
+  if (!reviewer) {
+    knowledgeReviewer.focus();
+    knowledgeMeta.textContent = "请填写复核人后再登记决定。";
+    return;
+  }
+  const ruleId = button.dataset.reviewRule;
+  const notes = knowledgeRules.querySelector(`[data-review-notes="${CSS.escape(ruleId)}"]`)?.value || "";
+  const buttons = [...knowledgeRules.querySelectorAll(`[data-review-rule="${CSS.escape(ruleId)}"]`)];
+  buttons.forEach((item) => { item.disabled = true; });
+  try {
+    const response = await fetch("/api/knowledge/rules/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rule_id: ruleId, status: button.dataset.reviewStatus, reviewer, notes,
+        review_token: button.closest("[data-review-token]")?.dataset.reviewToken }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    knowledgeMeta.textContent = payload.message || "复核已登记。";
+    await loadKnowledgeRules();
+  } catch (error) {
+    knowledgeMeta.textContent = error.message || "保存复核失败。";
+    buttons.forEach((item) => { item.disabled = false; });
   }
 }
 
@@ -714,8 +1802,8 @@ function renderKnowledgeStatus(payload) {
           <div class="status-row">
             <span class="status-indicator ${item.ready ? "ready" : "missing"}"></span>
             <strong>${escapeHtml(artifactLabels[key] || key)}</strong>
-            <span>${item.ready ? "已就绪" : "尚未生成"}</span>
-            <small>${item.ready && item.updated_at ? escapeHtml(new Date(item.updated_at * 1000).toLocaleString()) : ""}</small>
+            <span>${item.ready ? "已就绪" : (item.stale ? "已过期" : "尚未生成")}</span>
+            <small>${item.stale ? escapeHtml(item.reason || "需要重建") : (item.ready && item.updated_at ? escapeHtml(new Date(item.updated_at * 1000).toLocaleString()) : "")}</small>
           </div>
         `).join("")}
       </div>
@@ -1120,9 +2208,11 @@ function renderGapDashboard(payload) {
   const improvements = dashboard.expected_improvement || payload.expected_improvement || [];
   const tasks = dashboard.task_priority || payload.task_priority || [];
   const history = dashboard.learning_history || payload.learning_history || [];
+  const sources = payload.source_summary || dashboard.source_summary || {};
+  const analyticsCount = Number(sources.analytics_video_count || 0);
 
   if (gapMeta) {
-    gapMeta.textContent = `${payload.generated_at || "最新"} · 健康度 ${health.overall_score ?? 0} · ${gapStatusLabel(health.status)}`;
+    gapMeta.textContent = `${payload.generated_at || "最新"} · 健康度 ${health.overall_score ?? 0} · DuckDB ${analyticsCount} 条 · ${gapStatusLabel(health.status)}`;
   }
 
   gapDashboard.innerHTML = `
@@ -1132,6 +2222,8 @@ function renderGapDashboard(payload) {
       ${renderGapMetric("成熟能力", health.mature_count ?? 0, "项能力")}
       ${renderGapMetric("视频样本", health.video_count_total ?? 0, "条本地样本")}
     </div>
+
+    ${renderAnalyticsClosure(sources)}
 
     <div class="gap-grid">
       <section class="gap-block">
@@ -1176,6 +2268,81 @@ function renderGapDashboard(payload) {
       ${renderLearningHistory(history)}
     </section>
   `;
+}
+
+function renderAnalyticsClosure(sources) {
+  const videoCount = Number(sources.analytics_video_count || 0);
+  const evidenceCount = Number(sources.analytics_capability_evidence_count || 0);
+  const audioCoverage = normalizeCoverage(sources.analytics_audio_coverage);
+  const sceneCoverage = normalizeCoverage(sources.analytics_scene_coverage);
+  const visualCoverage = normalizeCoverage(sources.analytics_visual_coverage);
+  const medianTempo = sources.analytics_median_tempo_bpm;
+  const medianScene = sources.analytics_median_scene_duration;
+  const visualNote = visualCoverage > 0
+    ? "封面语义已参与 visual / thumbnail 评分"
+    : "OpenCLIP 权重尚未缓存，已快速跳过，不再阻塞任务";
+  return `
+    <section class="analytics-closure">
+      <div class="analytics-closure-head">
+        <div>
+          <span class="eyebrow">STRUCTURED ANALYTICS</span>
+          <h3>分析结果已经进入能力缺口</h3>
+        </div>
+        <span class="analytics-evidence-count">${evidenceCount} 组有效证据</span>
+      </div>
+      <div class="analytics-flow">
+        ${renderAnalyticsSignal(
+          "librosa · 音频节奏",
+          audioCoverage,
+          `${Number(sources.analytics_audio_ready_count || 0)}/${videoCount} 条`,
+          medianTempo == null ? "等待有效音频" : `中位速度 ${escapeHtml(medianTempo)} BPM`,
+          "audio",
+        )}
+        ${renderAnalyticsSignal(
+          "PySceneDetect · 剪辑节奏",
+          sceneCoverage,
+          `${Number(sources.analytics_scene_ready_count || 0)}/${videoCount} 条`,
+          medianScene == null ? "等待场景样本" : `中位镜头 ${escapeHtml(medianScene)} 秒`,
+          "editing / camera",
+        )}
+        ${renderAnalyticsSignal(
+          "OpenCLIP · 视觉语义",
+          visualCoverage,
+          `${Number(sources.analytics_visual_ready_count || 0)}/${videoCount} 条`,
+          visualNote,
+          "visual / thumbnail",
+        )}
+      </div>
+      <p class="analytics-closure-note">
+        DuckDB 当前汇总 ${videoCount} 条视频；上面的有效特征会直接增加对应能力的样本、来源和覆盖率，批量任务完成后会自动重算。
+      </p>
+    </section>
+  `;
+}
+
+function renderAnalyticsSignal(label, coverage, count, note, abilities) {
+  return `
+    <article class="analytics-signal">
+      <div class="analytics-signal-top">
+        <strong>${escapeHtml(label)}</strong>
+        <span>${coverage}%</span>
+      </div>
+      <div class="analytics-progress" aria-label="${escapeHtml(label)} 覆盖率 ${coverage}%">
+        <i style="width: ${coverage}%"></i>
+      </div>
+      <div class="analytics-signal-meta">
+        <span>${escapeHtml(count)}</span>
+        <span>→ ${escapeHtml(abilities)}</span>
+      </div>
+      <small>${note}</small>
+    </article>
+  `;
+}
+
+function normalizeCoverage(value) {
+  const numeric = Number(value || 0);
+  const percentage = numeric <= 1 ? numeric * 100 : numeric;
+  return Math.max(0, Math.min(100, Math.round(percentage)));
 }
 
 function renderGapMetric(label, value, suffix) {
@@ -1336,12 +2503,47 @@ function setProgress(value, stage = "") {
 
 function renderWhisperProgress(job) {
   const stage = String(job.stage || "");
-  const isWhisperStage = stage.includes("Whisper")
+  const runtimeDetail = job.progress_detail || {};
+  if (runtimeDetail.type === "playback_capture"
+      || stage.includes("本地播放采集")
+      || stage.includes("等待播放")) {
+    const phase = Number(runtimeDetail.phase_percent);
+    const normalized = Number.isFinite(phase)
+      ? Math.max(0, Math.min(100, phase))
+      : 0;
+    whisperProgress.hidden = false;
+    stopCaptureButton.hidden = runtimeDetail.state !== "recording";
+    stopCaptureButton.disabled = false;
+    stopCaptureButton.textContent = "停止录制并继续分析";
+    whisperProgressTitle.textContent = runtimeDetail.state === "warmup"
+      ? "等待浏览器开始播放"
+      : runtimeDetail.state === "finished"
+        ? "系统播放音频采集完成"
+        : "正在采集系统播放音频";
+    whisperDeviceBadge.className = "runtime-badge";
+    whisperDeviceBadge.textContent =
+      `WASAPI · ${runtimeDetail.device_name || "默认输出设备"}`;
+    whisperProgressBar.classList.remove("indeterminate");
+    whisperProgressBar.style.width = `${normalized}%`;
+    whisperPhasePercent.textContent = `${Math.round(normalized)}%`;
+    whisperProgressTrack.setAttribute("aria-valuenow", String(Math.round(normalized)));
+    whisperProgressTime.textContent =
+      `${formatDuration(runtimeDetail.elapsed_seconds)} / `
+      + `${formatDuration(runtimeDetail.duration_seconds)}`;
+    whisperRuntimeReason.textContent =
+      `当前音量 ${(Number(runtimeDetail.level || 0) * 100).toFixed(1)}%`
+      + " · 会录制当前输出设备上的全部系统声音";
+    return;
+  }
+  const isWhisperStage = runtimeDetail.type === "whisper"
+    || stage.includes("Whisper")
     || stage.includes("字幕写入");
   if (!isWhisperStage) {
     whisperProgress.hidden = true;
+    stopCaptureButton.hidden = true;
     return;
   }
+  stopCaptureButton.hidden = true;
   const detail = job.progress_detail?.type === "whisper"
     ? job.progress_detail
     : {
@@ -1422,6 +2624,16 @@ function formatDuration(value) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0);
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 function setTimeline(stage) {
   const stageMap = [
     ["准备", 0],
@@ -1431,6 +2643,9 @@ function setTimeline(stage) {
     ["Whisper", 1],
     ["字幕写入", 1],
     ["内容分析", 2],
+    ["读取小说", 1],
+    ["小说创作", 2],
+    ["保存小说", 3],
     ["UP批量", 1],
     ["单视频", 1],
     ["V4报告", 3],
@@ -1460,6 +2675,8 @@ function setLog(text) {
 
 function statusLabel(job) {
   if (job.status === "queued") return "排队中";
+  if (job.status === "cancelled") return "已取消";
+  if (job.cancel_requested) return "正在取消";
   if (job.status === "running") return job.stage || "运行中";
   if (job.status === "done") return "已完成";
   if (job.status === "failed") return "失败";
@@ -1488,3 +2705,5 @@ updateClock();
 setInterval(updateClock, 1000);
 loadHistory();
 checkServerCapabilities();
+loadProductionWorkspace();
+updateProductionMode();

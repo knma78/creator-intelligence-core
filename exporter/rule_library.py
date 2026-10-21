@@ -9,6 +9,19 @@ from statistics import mean, median
 from typing import Any
 
 from config import SETTINGS
+from infrastructure.atomic_io import atomic_write_json
+from infrastructure.file_lock import file_lock
+from infrastructure.rule_versions import archive_versions, observation_fingerprint, version_rule
+from exporter.rule_documents import (
+    _build_library_markdown,
+    _build_pattern_library_markdown,
+    _build_pattern_markdown,
+    _build_rule_markdown,
+    _observation_rag_document,
+    _pattern_rag_document,
+    _rule_rag_document,
+    _write_observation_markdown,
+)
 
 
 RULE_COLLECTIONS = [
@@ -27,6 +40,32 @@ COLLECTION_LABELS = {
     "climax_templates": "高潮",
     "ending_templates": "结尾",
     "workflow_templates": "工作流",
+}
+
+COLLECTION_LAYERS = {
+    "hook_templates": "opening",
+    "script_structure_templates": "narrative_structure",
+    "transition_templates": "transition",
+    "climax_templates": "climax",
+    "ending_templates": "ending",
+    "workflow_templates": "workflow",
+}
+
+LAYER_LABELS = {
+    "opening": "Opening",
+    "narrative_structure": "Narrative Structure",
+    "transition": "Transition",
+    "climax": "Climax",
+    "ending": "Ending",
+    "workflow": "Workflow",
+}
+
+RULE_STATUSES = {
+    "candidate",
+    "under_review",
+    "validated",
+    "deprecated",
+    "rejected",
 }
 
 TRANSITION_SIGNALS = {
@@ -57,6 +96,17 @@ def build_rule_library(
     output_dir: Path | None = None,
     cache_root: Path | None = None,
 ) -> dict[str, Path]:
+    directory = output_dir or output_root / "creator_knowledge_base" / "rules"
+    with file_lock(directory / "rule_reviews.lock"):
+        return _build_rule_library(template_payload, output_root, output_dir, cache_root)
+
+
+def _build_rule_library(
+    template_payload: dict[str, Any],
+    output_root: Path = SETTINGS.output_dir,
+    output_dir: Path | None = None,
+    cache_root: Path | None = None,
+) -> dict[str, Path]:
     output_root = output_root.resolve()
     output_dir = (
         output_dir or output_root / "creator_knowledge_base" / "rules"
@@ -68,7 +118,7 @@ def build_rule_library(
 
     library_path = output_dir / "rule_library.json"
     generated_at = datetime.now().isoformat(timespec="seconds")
-    previous = _read_json(library_path)
+    previous = _read_json(library_path, strict=True)
     prior_ids = {
         str(rule.get("template_id")): str(rule.get("rule_id"))
         for rule in previous.get("rules", [])
@@ -96,7 +146,25 @@ def build_rule_library(
             ),
             encoding="utf-8",
         )
-    reviews = (_read_json(review_path).get("reviews") or {})
+    candidate_path = output_dir / "candidate_knowledge.json"
+    if not candidate_path.exists():
+        candidate_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "creator-candidate-knowledge/v1",
+                    "version": 1,
+                    "policy": {
+                        "agent_permission": "propose_only",
+                        "validated_knowledge_write": "validation_pipeline_only",
+                    },
+                    "candidates": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    reviews = (_read_json(review_path, strict=True).get("reviews") or {})
     bundles = [
         _build_knowledge_bundle(
             template,
@@ -128,8 +196,8 @@ def build_rule_library(
         *[_observation_rag_document(observation) for observation in observations],
     ]
     payload = {
-        "schema_version": "creator-knowledge-library/v2",
-        "version": 2,
+        "schema_version": "creator-knowledge-library/v3",
+        "version": 3,
         "generated_at": generated_at,
         "source": {
             "template_count": len(templates),
@@ -147,6 +215,16 @@ def build_rule_library(
                 "模式存在与传播效果分开评估；没有留存或完播数据时，"
                 "不得把播放量当作因果证明。"
             ),
+            "rule_semantics": "Rule = Conditional Capability Proposal",
+            "matching_policy": {
+                "condition_true": "add_to_candidate_pool",
+                "condition_false": "do_not_trigger",
+                "condition_unknown": "optional_low_confidence_candidate",
+                "same_layer": "compare_and_select_primary",
+                "cross_layer": "allow_composition",
+            },
+            "agent_permission": "propose_only",
+            "validated_knowledge_write": "validation_pipeline_only",
             "counterexample_policy": (
                 "反例必须尽量匹配内容定位和时长区间，"
                 "仅说明存在替代机制，不否定规则。"
@@ -160,7 +238,7 @@ def build_rule_library(
         "pattern_library": patterns,
         "observation_library": observations,
         "rag_index": {
-            "version": 2,
+            "version": 3,
             "document_count": len(rag_documents),
             "documents": rag_documents,
         },
@@ -176,10 +254,8 @@ def build_rule_library(
     pattern_markdown_path = pattern_dir / "pattern_library.md"
     index_path = output_dir / "rule_index.json"
     cache_index_path = cache_dir / "rule_index.json"
-    library_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    archive_versions(output_dir, rules, previous.get("rules", []))
+    atomic_write_json(library_path, payload)
     markdown_path.write_text(_build_library_markdown(payload), encoding="utf-8")
     observation_json_path.write_text(
         json.dumps(
@@ -240,6 +316,7 @@ def build_rule_library(
         "pattern_library_json": pattern_json_path,
         "pattern_library_markdown": pattern_markdown_path,
         "rule_reviews": review_path,
+        "candidate_knowledge": candidate_path,
     }
 
 
@@ -439,6 +516,7 @@ def _build_knowledge_bundle(
             observation["observation_id"] for observation in observations
         ],
         "located_observation_count": location_count,
+        "observation_content_hashes": {item["observation_id"]: observation_fingerprint(item) for item in observations},
         "examples": [
             {
                 "video_id": sample["video_id"],
@@ -468,7 +546,7 @@ def _build_knowledge_bundle(
         samples,
         location_count,
         effect_evidence,
-        bool(review.get("approved")),
+        False,
     )
     pattern = (
         _build_pattern(
@@ -485,8 +563,10 @@ def _build_knowledge_bundle(
     )
     human_reviewed = bool(review.get("approved"))
     status = str(review.get("status") or ("validated" if human_reviewed else "candidate"))
-    if status not in {"candidate", "validated", "deprecated", "rejected"}:
+    if status not in RULE_STATUSES:
         status = "candidate"
+    if status == "validated" and not human_reviewed:
+        status = "under_review"
     action = _action(template, collection)
     action["knowledge_origin"] = {
         "materials": "inferred",
@@ -497,12 +577,21 @@ def _build_knowledge_bundle(
     action["observed_basis"] = (
         pattern["pattern_id"] if pattern else "没有直接 Pattern，仅为综合工作流假设"
     )
+    layer = COLLECTION_LAYERS.get(collection, collection)
+    communication_goal = _communication_goal(template, collection)
+    condition_description = str(template.get("use_when") or "")
+    definition = _capability_definition(template, collection)
+    candidate_confidence = {
+        "pattern_existence": confidence["pattern_confidence"]["score"],
+        "functional_interpretation": confidence["functional_interpretation"]["score"],
+        "causal_effect": "unverified",
+    }
     rule = {
-        "schema_version": "creator-knowledge-rule/v2",
+        "schema_version": "creator-knowledge-rule/v3",
         "knowledge_type": "transferable_rule",
         "rule_id": rule_id,
         "template_id": template_id,
-        "version": "2.0",
+        "version": "3.0",
         "status": status,
         "human_reviewed": human_reviewed,
         "review": {
@@ -511,21 +600,39 @@ def _build_knowledge_bundle(
             "notes": review.get("notes", ""),
         },
         "name": template.get("name", template_id),
+        "layer": layer,
+        "layer_label": LAYER_LABELS.get(layer, layer),
+        "definition": definition,
+        "condition": [condition_description] if condition_description else [],
+        "selection_mode": "candidate",
+        "intended_function": [communication_goal],
+        "confidence": candidate_confidence,
         "collection": collection,
         "category": COLLECTION_LABELS.get(collection, collection),
         "related_categories": template.get("related_categories", []),
         "Claim": (
-            f"当“{template.get('use_when', '')}”成立时，可以测试"
-            f"“{template.get('name', template_id)}”来实现"
-            f"“{_communication_goal(template, collection)}”。"
-            "该声明是条件性创作假设，不是已证实的因果定律。"
+            f"当“{condition_description}”成立时，可以将"
+            f"“{template.get('name', template_id)}”加入候选能力池，"
+            f"用于尝试“{communication_goal}”。"
+            "该能力的调用属于条件性创作假设，不代表其必然产生预期效果，"
+            "也不代表该方法优于所有其他候选能力。"
         ),
         "Trigger": {
-            "description": template.get("use_when", ""),
+            "description": condition_description,
             "required_signals": _required_signals(template, collection),
         },
+        "Selection": {
+            "mode": "candidate",
+            "candidate_pool_layer": layer,
+            "condition_true": "add_to_candidate_pool",
+            "condition_false": "do_not_trigger",
+            "condition_unknown": "optional_low_confidence_candidate",
+            "same_layer_policy": "compare_and_select_primary",
+            "cross_layer_policy": "allow_composition",
+            "final_decision_owner": "capability_planner",
+        },
         "Goal": {
-            "communication_goal": _communication_goal(template, collection),
+            "communication_goal": communication_goal,
             "capability": template.get("capability", ""),
         },
         "Mechanism": {
@@ -568,6 +675,13 @@ def _build_knowledge_bundle(
         },
         "Revision History": _revision_history(previous_rule, generated_at),
     }
+    version_rule(rule, previous_rule, review)
+    if rule["human_reviewed"]:
+        confidence = _confidence_v2(
+            evidence_type, selected, samples, location_count, effect_evidence, True,
+        )
+        rule["Confidence"] = confidence
+        rule["confidence"]["functional_interpretation"] = confidence["functional_interpretation"]["score"]
     return {
         "rule": rule,
         "pattern": pattern,
@@ -796,6 +910,15 @@ def _confidence_v2(
         quality_score = min(quality_score, 0.38)
 
     effect_score = float(effect_evidence.get("confidence_score") or 0)
+    functional_score = 0.6 * pattern_score + 0.4 * quality_score
+    if evidence_type == "indirect_capability_support":
+        functional_score = min(functional_score, 0.45)
+    elif evidence_type == "synthesized_workflow":
+        functional_score = min(functional_score, 0.4)
+    elif human_reviewed:
+        functional_score = min(0.9, functional_score + 0.08)
+    else:
+        functional_score = min(0.74, functional_score)
     overall = 0.55 * pattern_score + 0.25 * quality_score + 0.20 * effect_score
     if human_reviewed:
         overall = min(0.9, overall + 0.1)
@@ -803,6 +926,7 @@ def _confidence_v2(
         overall = min(0.74, overall)
 
     pattern_score = round(pattern_score, 2)
+    functional_score = round(functional_score, 2)
     quality_score = round(quality_score, 2)
     overall = round(overall, 2)
     return {
@@ -812,6 +936,11 @@ def _confidence_v2(
             "score": pattern_score,
             "level": _confidence_level(pattern_score),
             "meaning": "该结构信号在样本中稳定出现的确定程度。",
+        },
+        "functional_interpretation": {
+            "score": functional_score,
+            "level": _confidence_level(functional_score),
+            "meaning": "该模式可被合理解释为所声明创作功能的确定程度。",
         },
         "effect_confidence": {
             "score": effect_score,
@@ -853,6 +982,20 @@ def _mechanism_hypothesis(collection: str) -> str:
     }.get(collection, "通过结构化信息组织降低理解成本。")
 
 
+def _capability_definition(
+    template: dict[str, Any],
+    collection: str,
+) -> str:
+    explicit = str(template.get("definition") or "").strip()
+    if explicit:
+        return explicit
+    name = str(template.get("name") or template.get("id") or "该能力")
+    sequence = [str(item) for item in template.get("sequence", []) if str(item).strip()]
+    if sequence:
+        return f"通过“{' → '.join(sequence)}”组织内容，以实现{name}对应的创作功能。"
+    return f"在条件满足时，将{name}作为候选能力，用于尝试解决当前创作问题。"
+
+
 def _revision_history(
     previous_rule: dict[str, Any],
     generated_at: str,
@@ -877,6 +1020,17 @@ def _revision_history(
                 "change": (
                     "迁移为 Observation、Pattern、Rule 三级知识结构；"
                     "拆分模式置信度与效果置信度。"
+                ),
+            }
+        )
+    if not any(str(item.get("version")) == "3.0" for item in history):
+        history.append(
+            {
+                "version": "3.0",
+                "date": generated_at,
+                "change": (
+                    "迁移为条件性候选能力语义；增加能力层级、选择模式、"
+                    "功能解释置信度和 Capability Planner 约束。"
                 ),
             }
         )
@@ -1198,422 +1352,6 @@ def _ending_family(sample: dict[str, Any]) -> str:
     return next((name for name, words in families if _contains_any(text, words)), "未识别")
 
 
-def _rule_rag_document(rule: dict[str, Any]) -> dict[str, Any]:
-    evidence = rule["Evidence"]
-    confidence = rule["Confidence"]
-    action = rule["Action"]
-    counter_patterns = [
-        item["alternative_pattern"] for item in rule["Counter Examples"]
-    ]
-    text = (
-        f"规则 {rule['rule_id']}：{rule['name']}。"
-        f"状态：{rule['status']}，人工复核：{rule['human_reviewed']}。"
-        f"声明：{rule['Claim']}。"
-        f"触发：{rule['Trigger']['description']}。"
-        f"目标：{rule['Goal']['communication_goal']}。"
-        f"素材：{'、'.join(action['materials'])}。"
-        f"动作：{' -> '.join(action['editing_sequence'])}。"
-        f"约束：{'；'.join(rule['Constraints'][:4])}。"
-        f"证据：{evidence['video_count']} 条视频、{evidence['creator_count']} 个创作者，"
-        f"{evidence['evidence_label']}。"
-        f"模式置信度：{confidence['pattern_confidence']['score']}；"
-        f"效果置信度：{confidence['effect_confidence']['score']}；"
-        f"综合置信度：{confidence['score']}（{confidence['level']}）。"
-        f"替代机制：{'、'.join(counter_patterns) or '暂无可验证反例'}。"
-    )
-    return {
-        "chunk_id": f"rule:{rule['rule_id']}",
-        "category": "Rule",
-        "rule_id": rule["rule_id"],
-        "knowledge_type": rule["knowledge_type"],
-        "status": rule["status"],
-        "template_id": rule["template_id"],
-        "template_collection": rule["collection"],
-        "title": rule["name"],
-        "capability": rule["Goal"]["capability"],
-        "related_categories": rule["related_categories"],
-        "creators": evidence["creators"],
-        "source_video_ids": evidence["video_ids"],
-        "confidence": confidence,
-        "text": text,
-        "metadata": {
-            "do_not_copy": True,
-            "source_type": "creator_rule",
-            "evidence_type": evidence["evidence_type"],
-            "causal_status": rule["Mechanism"]["causal_status"],
-        },
-    }
-
-
-def _pattern_rag_document(pattern: dict[str, Any]) -> dict[str, Any]:
-    text = (
-        f"模式 {pattern['pattern_id']}：{pattern['name']}。"
-        f"{pattern['claim']}。"
-        f"创作者数：{pattern['frequency']['creator_count']}；"
-        f"可定位观察：{pattern['frequency']['located_observation_count']}。"
-        f"模式置信度：{pattern['confidence']['score']}。"
-        "该模式只表示相关观察重复出现，不构成传播效果的因果证明。"
-    )
-    return {
-        "chunk_id": f"pattern:{pattern['pattern_id']}",
-        "category": "Pattern",
-        "knowledge_type": "pattern",
-        "pattern_id": pattern["pattern_id"],
-        "rule_id": pattern["rule_id"],
-        "title": pattern["name"],
-        "capability": pattern["category"],
-        "source_video_ids": pattern["video_ids"],
-        "confidence": pattern["confidence"],
-        "text": text,
-        "metadata": {
-            "do_not_copy": True,
-            "source_type": "creator_pattern",
-            "causal_status": pattern["causal_status"],
-        },
-    }
-
-
-def _observation_rag_document(observation: dict[str, Any]) -> dict[str, Any]:
-    text = (
-        f"观察 {observation['observation_id']}。"
-        f"视频 {observation['video_id']}，创作者 {observation['creator']}。"
-        f"{observation['claim']}。"
-        f"检测信号：{observation['detected_signal']}。"
-        f"位置：{observation['location']['section']} "
-        f"{observation['location']['time_range'] or '未知'}。"
-        "不包含字幕原句，不允许作因果推断。"
-    )
-    return {
-        "chunk_id": f"observation:{observation['observation_id']}",
-        "category": "Observation",
-        "knowledge_type": "observation",
-        "observation_id": observation["observation_id"],
-        "rule_id": observation["rule_id"],
-        "title": observation["detected_signal"],
-        "capability": observation["location"]["section"],
-        "creators": [observation["creator"]] if observation["creator"] else [],
-        "source_video_ids": [observation["video_id"]],
-        "confidence": observation["confidence"],
-        "text": text,
-        "metadata": {
-            "do_not_copy": True,
-            "source_type": "creator_observation",
-            "causal_status": "not_established",
-        },
-    }
-
-
-def _build_library_markdown(payload: dict[str, Any]) -> str:
-    lines = [
-        "# Creator Rule Library",
-        "",
-        f"生成时间：{payload['generated_at']}",
-        "",
-        f"- Rule：{payload['rule_count']} 条",
-        f"- Pattern：{payload['pattern_count']} 条",
-        f"- Observation：{payload['observation_count']} 条",
-        "",
-        "知识按 Observation → Pattern → Rule 分层保存。"
-        "规则是条件性创作假设，不是因果定律；所有文件均不写入字幕原句。",
-        "",
-    ]
-    for rule in payload["rules"]:
-        lines.extend([_build_rule_markdown(rule).rstrip(), ""])
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _build_rule_markdown(rule: dict[str, Any]) -> str:
-    trigger = rule["Trigger"]
-    goal = rule["Goal"]
-    action = rule["Action"]
-    evidence = rule["Evidence"]
-    effect = rule["Effect Evidence"]
-    confidence = rule["Confidence"]
-    lines = [
-        "---",
-        f"schema_version: {rule['schema_version']}",
-        f"knowledge_type: {rule['knowledge_type']}",
-        f"rule_id: {rule['rule_id']}",
-        f"status: {rule['status']}",
-        f"version: {rule['version']}",
-        f"human_reviewed: {str(rule['human_reviewed']).lower()}",
-        f"category: {json.dumps(rule['category'], ensure_ascii=False)}",
-        "---",
-        "",
-        f"# Rule ID: {rule['rule_id']}",
-        "",
-        f"**规则名称：{rule['name']}**",
-        "",
-        "## Claim（知识声明）",
-        "",
-        rule["Claim"],
-        "",
-        "## Trigger（触发条件）",
-        "",
-        trigger["description"],
-        "",
-        f"- 可观测信号：{'、'.join(trigger['required_signals']) or '暂无'}",
-        "",
-        "## Goal（传播目标）",
-        "",
-        goal["communication_goal"],
-        "",
-        f"- 对应能力：{goal['capability']}",
-        "",
-        "## Mechanism（机制假设）",
-        "",
-        f"- 假设：{rule['Mechanism']['hypothesis']}",
-        f"- 因果状态：`{rule['Mechanism']['causal_status']}`",
-        f"- 尚未证明：{rule['Mechanism']['what_is_not_proven']}",
-        "",
-        "## Knowledge Origin（知识来源类型）",
-        "",
-        f"- Observed：{rule['Knowledge Origin']['observed']}",
-        f"- Inferred：{'、'.join(rule['Knowledge Origin']['inferred'])}",
-        f"- Recommended：{'、'.join(rule['Knowledge Origin']['recommended'])}",
-        "",
-        "## Action（执行动作）",
-        "",
-        f"- Pattern 依据：`{action['observed_basis']}`",
-        f"- 素材槽位来源：`{action['knowledge_origin']['materials']}`",
-        f"- 组织顺序来源：`{action['knowledge_origin']['editing_sequence']}`",
-        f"- 剪辑建议来源：`{action['knowledge_origin']['editing_guidance']}`",
-        "",
-        "### 应展示的素材",
-        "",
-    ]
-    lines.extend(f"- {item}" for item in action["materials"])
-    lines.extend(["", "### 剪辑顺序", ""])
-    lines.extend(
-        f"{index}. {item}"
-        for index, item in enumerate(action["editing_sequence"], start=1)
-    )
-    lines.extend(["", "### 剪辑要求", ""])
-    lines.extend(f"- {item}" for item in action["editing_guidance"])
-    lines.extend(["", "### 质量检查", ""])
-    lines.extend(f"- {item}" for item in action["quality_checks"])
-    lines.extend(["", "## Constraints（约束）", ""])
-    lines.extend(f"- {item}" for item in rule["Constraints"])
-    lines.extend(
-        [
-            "",
-            "## Evidence（证据）",
-            "",
-            f"- 证据类型：{evidence['evidence_label']}（`{evidence['evidence_type']}`）",
-            f"- 匹配依据：{evidence['matching_basis']}",
-            f"- 视频数：{evidence['video_count']}",
-            f"- 创作者数：{evidence['creator_count']}",
-            f"- 样本覆盖率：{evidence['sample_ratio']:.1%}",
-            f"- 计数单位：{evidence['observation_unit']}",
-            f"- 可定位 Observation：{evidence['located_observation_count']}",
-            f"- 创作者：{'、'.join(evidence['creators']) or '暂无'}",
-            (
-                f"- 完整 Observation：见 `observations/observation_library.json` "
-                f"中 `rule_id = {rule['rule_id']}` 的记录"
-            ),
-            "",
-            "代表证据：",
-            "",
-        ]
-    )
-    if evidence["examples"]:
-        lines.extend(
-            (
-                f"- `{item['video_id']}` | {item['author']} | "
-                f"Observation `{item['observation_id'] or '无直接观察'}` | "
-                f"信号：{item['matched_signal']} | "
-                f"创作者相对播放指数：{item['relative_view_index']}"
-            )
-            for item in evidence["examples"]
-        )
-    else:
-        lines.append("- 暂无可验证的逐视频证据。")
-    lines.extend(
-        [
-            "",
-            "## Effect Evidence（效果证据）",
-            "",
-            f"- 状态：`{effect['status']}`",
-            f"- 相对播放指标样本：{effect['available_metrics']['relative_view_index']}",
-            f"- 留存数据：{effect['available_metrics']['retention']}",
-            f"- 完播数据：{effect['available_metrics']['completion_rate']}",
-            f"- 相对播放指数中位数：{effect['summary']['median_relative_view_index']}",
-            f"- 效果置信度：{effect['confidence_score']}",
-            f"- 因果状态：`{effect['causal_status']}`",
-            f"- 解释：{effect['interpretation']}",
-            "",
-            "## Confidence（置信度）",
-            "",
-            f"- 综合：{confidence['score']}（{confidence['level']}）",
-            f"- 模式存在：{confidence['pattern_confidence']['score']}（{confidence['pattern_confidence']['level']}）",
-            f"- 传播效果：{confidence['effect_confidence']['score']}（{confidence['effect_confidence']['level']}）",
-            f"- 证据质量：{confidence['evidence_quality']['score']}（{confidence['evidence_quality']['level']}）",
-            f"- 人工复核：{confidence['evidence_quality']['human_reviewed']}",
-            f"- 依据：{confidence['rationale']}",
-            "",
-            "## Counter Evidence（反证与替代机制）",
-            "",
-        ]
-    )
-    if rule["Counter Examples"]:
-        lines.extend(
-            (
-                f"- `{item['video_id']}` | {item['author']} | "
-                f"相对播放指数 {item['relative_view_index']} | "
-                f"替代机制：{item['alternative_pattern']}。"
-                f"{item['reason']}"
-            )
-            for item in rule["Counter Examples"]
-        )
-    else:
-        lines.append(
-            "- 当前没有满足“相同定位、相同时长区间、相对表现不低于创作者均值”"
-            "的可靠替代样本；"
-            "这不代表规则没有反例。"
-        )
-    provenance = rule["Provenance"]
-    lines.extend(
-        [
-            "",
-            "## Provenance（来源追踪）",
-            "",
-            f"- 生成器：`{provenance['generator']}`",
-            f"- 来源层：{' → '.join(provenance['source_layers'])}",
-            f"- 是否写入原文：{provenance['raw_text_included']}",
-            f"- 生成时间：{provenance['generated_at']}",
-            "- 代表来源文件：",
-        ]
-    )
-    lines.extend(
-        f"  - `{path}`" for path in provenance["source_analysis_paths"][:12]
-    )
-    if len(provenance["source_analysis_paths"]) > 12:
-        lines.append(
-            f"  - 其余 {len(provenance['source_analysis_paths']) - 12} 个来源见 JSON。"
-        )
-    lines.extend(["", "## Revision History（修订记录）", ""])
-    lines.extend(
-        f"- v{item['version']} | {item['date']} | {item['change']}"
-        for item in rule["Revision History"]
-    )
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _build_pattern_library_markdown(
-    patterns: list[dict[str, Any]],
-    generated_at: str,
-) -> str:
-    lines = [
-        "# Creator Pattern Library",
-        "",
-        f"生成时间：{generated_at}",
-        "",
-        "Pattern 只表示跨样本重复出现的观察，不代表传播效果因果关系。",
-        "",
-    ]
-    for pattern in patterns:
-        lines.extend([_build_pattern_markdown(pattern).rstrip(), ""])
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _build_pattern_markdown(pattern: dict[str, Any]) -> str:
-    frequency = pattern["frequency"]
-    performance = pattern["performance_summary"]
-    lines = [
-        "---",
-        f"schema_version: {pattern['schema_version']}",
-        f"knowledge_type: {pattern['knowledge_type']}",
-        f"pattern_id: {pattern['pattern_id']}",
-        f"rule_id: {pattern['rule_id']}",
-        f"category: {json.dumps(pattern['category'], ensure_ascii=False)}",
-        "---",
-        "",
-        f"# Pattern ID: {pattern['pattern_id']}",
-        "",
-        f"**模式名称：{pattern['name']}**",
-        "",
-        "## Claim（观察归纳）",
-        "",
-        pattern["claim"],
-        "",
-        "## Frequency（频率）",
-        "",
-        f"- Observation：{frequency['observation_count']}",
-        f"- 创作者：{frequency['creator_count']}",
-        f"- 可定位 Observation：{frequency['located_observation_count']}",
-        "",
-        "## Distribution（分布）",
-        "",
-        f"- 内容定位：{_format_mapping(pattern['distribution']['positionings'])}",
-        f"- 时长区间：{_format_mapping(pattern['distribution']['duration_buckets'])}",
-        "",
-        "## Performance Context（表现背景）",
-        "",
-        f"- 相对播放指数中位数：{performance['median_relative_view_index']}",
-        f"- 高于创作者样本均值：{performance['above_creator_average_count']}",
-        f"- 因果状态：`{performance['causal_status']}`",
-        "",
-        "## Confidence（模式置信度）",
-        "",
-        f"- 分数：{pattern['confidence']['score']}",
-        f"- 等级：{pattern['confidence']['level']}",
-        "",
-        "## Limitations（限制）",
-        "",
-    ]
-    lines.extend(f"- {item}" for item in pattern["limitations"])
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _write_observation_markdown(
-    observation_dir: Path,
-    observations: list[dict[str, Any]],
-    generated_at: str,
-) -> None:
-    by_video: dict[str, list[dict[str, Any]]] = {}
-    for observation in observations:
-        by_video.setdefault(observation["video_id"], []).append(observation)
-    for video_id, items in by_video.items():
-        lines = [
-            "---",
-            "schema_version: creator-knowledge-observation/v2",
-            "knowledge_type: observation_collection",
-            f"video_id: {json.dumps(video_id, ensure_ascii=False)}",
-            "raw_text_included: false",
-            "---",
-            "",
-            f"# Video Observations: {video_id}",
-            "",
-            f"生成时间：{generated_at}",
-            "",
-            "本文件只记录抽象功能信号，不包含字幕原句。",
-            "",
-        ]
-        for observation in items:
-            lines.extend(
-                [
-                    f"## {observation['observation_id']}",
-                    "",
-                    f"- Rule：`{observation['rule_id']}`",
-                    f"- 创作者：{observation['creator']}",
-                    f"- 定位：{observation['positioning']}",
-                    f"- 声明：{observation['claim']}",
-                    f"- 信号：{observation['detected_signal']}",
-                    f"- 位置：{observation['location']['section']} / "
-                    f"{observation['location']['time_range'] or '未知'}",
-                    f"- 位置精度：`{observation['location']['precision']}`",
-                    f"- 置信度：{observation['confidence']['score']}（"
-                    f"{observation['confidence']['level']}）",
-                    f"- 因果解释：不允许",
-                    "",
-                ]
-            )
-        (observation_dir / f"{_safe_filename(video_id)}.md").write_text(
-            "\n".join(lines).rstrip() + "\n",
-            encoding="utf-8",
-        )
-
-
 def _analysis_coverage(
     structure: list[dict[str, Any]],
     duration: Any,
@@ -1733,16 +1471,6 @@ def _round_median(values: list[float], digits: int = 4) -> float | None:
     return round(float(median(values)), digits) if values else None
 
 
-def _format_mapping(mapping: dict[str, Any]) -> str:
-    return "、".join(
-        f"{key}({value})" for key, value in mapping.items()
-    ) or "暂无"
-
-
-def _safe_filename(value: str) -> str:
-    return re.sub(r'[<>:"/\\|?*]+', "_", value).strip(". ") or "unknown"
-
-
 def _as_int(value: Any) -> int:
     try:
         return int(float(value or 0))
@@ -1759,10 +1487,12 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
-def _read_json(path: Path) -> dict[str, Any]:
+def _read_json(path: Path, *, strict: bool = False) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
+        if strict:
+            raise
         return {}

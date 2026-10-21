@@ -54,6 +54,8 @@ class PlatformAuthTests(unittest.TestCase):
         options: dict[str, object] = {}
         apply_yt_dlp_auth_options(options, self.settings)
         self.assertEqual(options["cookiefile"], str(expected))
+        self.assertTrue(options["continuedl"])
+        self.assertGreaterEqual(options["fragment_retries"], 1)
 
     def test_youtube_cookie_import_is_used_by_video_and_channel_downloaders(self) -> None:
         content = "# Netscape HTTP Cookie File\n" + _cookie_line(

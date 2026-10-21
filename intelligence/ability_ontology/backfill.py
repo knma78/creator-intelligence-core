@@ -53,6 +53,11 @@ def backfill_video_profiles(
                 creator_name=author_by_video.get(video_id, ""),
                 source_analysis_ref=str(analysis_path),
                 save=save_observations,
+                transcript_tail=_load_transcript_tail(
+                    settings,
+                    analysis_path.parent,
+                    video_id,
+                ),
             )
             output_path.write_text(
                 json.dumps(profile, ensure_ascii=False, indent=2),
@@ -77,6 +82,28 @@ def backfill_video_profiles(
         "output_files": output_files,
         "database_path": str(repository.database_path),
     }
+
+
+def _load_transcript_tail(
+    settings: Settings,
+    output_dir: Path,
+    video_id: str,
+    limit: int = 4000,
+) -> str:
+    candidates = [
+        output_dir / "subtitle.txt",
+        settings.cache_dir / "transcripts" / video_id / "subtitle.txt",
+    ]
+    for path in candidates:
+        if not path.is_file() or path.stat().st_size <= 0:
+            continue
+        text = path.read_text(
+            encoding="utf-8-sig",
+            errors="replace",
+        ).strip()
+        if text:
+            return text[-limit:]
+    return ""
 
 
 def _load_video_authors(settings: Settings) -> dict[str, str]:

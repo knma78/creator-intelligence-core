@@ -6,6 +6,12 @@ import unittest
 from pathlib import Path
 
 from exporter.rule_library import build_rule_library
+from infrastructure.rule_versions import content_fingerprint, evidence_binding
+from intelligence.capability_planner import build_capability_plan
+from intelligence.candidate_knowledge import (
+    propose_candidate_knowledge,
+    review_candidate_knowledge,
+)
 
 
 class RuleLibraryTests(unittest.TestCase):
@@ -59,10 +65,24 @@ class RuleLibraryTests(unittest.TestCase):
             self.assertEqual(contrast_rule["rule_id"], "R-001")
             self.assertEqual(
                 contrast_rule["schema_version"],
-                "creator-knowledge-rule/v2",
+                "creator-knowledge-rule/v3",
             )
             self.assertEqual(contrast_rule["status"], "candidate")
             self.assertFalse(contrast_rule["human_reviewed"])
+            self.assertEqual(contrast_rule["layer"], "opening")
+            self.assertEqual(contrast_rule["selection_mode"], "candidate")
+            self.assertEqual(
+                contrast_rule["Selection"]["final_decision_owner"],
+                "capability_planner",
+            )
+            self.assertEqual(
+                contrast_rule["confidence"]["causal_effect"],
+                "unverified",
+            )
+            self.assertIn(
+                "functional_interpretation",
+                contrast_rule["Confidence"],
+            )
             self.assertEqual(
                 contrast_rule["Evidence"]["evidence_type"],
                 "direct_pattern_observation",
@@ -112,7 +132,8 @@ class RuleLibraryTests(unittest.TestCase):
             ):
                 self.assertIn(heading, markdown)
             self.assertIn("knowledge_type: transferable_rule", markdown)
-            self.assertIn("不是已证实的因果定律", markdown)
+            self.assertIn("加入候选能力池", markdown)
+            self.assertIn("selection_mode: candidate", markdown)
             self.assertTrue(
                 (
                     output
@@ -140,6 +161,8 @@ class RuleLibraryTests(unittest.TestCase):
                 "reviewer": "test-reviewer",
                 "reviewed_at": "2026-07-28",
                 "notes": "人工复核测试",
+                "content_fingerprint": content_fingerprint(contrast_rule),
+                "evidence_binding": evidence_binding(contrast_rule),
             }
             review_path.write_text(
                 json.dumps(review_payload, ensure_ascii=False, indent=2),
@@ -172,6 +195,47 @@ class RuleLibraryTests(unittest.TestCase):
             self.assertEqual(ids["hook_contrast_gap"], "R-001")
             self.assertEqual(ids["workflow_topic_to_script"], "R-002")
             self.assertEqual(ids["hook_question_task"], "R-003")
+
+            plan = build_capability_plan(
+                "这个题材存在反差和冲突，需要设计开场。",
+                rule_library_path=paths["rule_library_json"],
+            )
+            self.assertEqual(plan["planner_policy"]["must_use"], False)
+            self.assertEqual(plan["selections"][0]["layer"], "opening")
+            self.assertEqual(
+                plan["selections"][0]["primary"]["rule_id"],
+                "R-001",
+            )
+
+            candidate_path = root / "candidate_knowledge.json"
+            proposal = propose_candidate_knowledge(
+                {
+                    "name": "剧情选择节点",
+                    "proposed_layer": "narrative_structure",
+                    "observation": "多个样本以角色选择改变后续事件。",
+                    "evidence": ["sample-v1", "sample-v2"],
+                    "source": ["local-analysis"],
+                    "reasoning": "选择改变资源与关系状态。",
+                    "possible_function": "建立可追踪的剧情因果分支。",
+                    "alternative_interpretation": "可能只是互动包装。",
+                    "confidence": {
+                        "pattern_existence": 0.6,
+                        "functional_interpretation": 0.45,
+                        "causal_effect": "unverified",
+                    },
+                },
+                path=candidate_path,
+                timestamp="2026-08-29T00:00:00",
+            )
+            self.assertEqual(proposal["status"], "candidate")
+            reviewed = review_candidate_knowledge(
+                proposal["candidate_id"],
+                status="under_review",
+                reviewer="test-reviewer",
+                path=candidate_path,
+                reviewed_at="2026-08-29T01:00:00",
+            )
+            self.assertEqual(reviewed["status"], "under_review")
 
     @staticmethod
     def _template(template_id: str, name: str) -> dict:

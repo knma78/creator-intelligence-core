@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
+from infrastructure.analytics_store import load_analytics_evidence
 
 from .models import AbilityDefinition, AbilityEvidence, CreatorRecord, KnowledgeDataset, VideoRecord
 
@@ -103,6 +104,73 @@ class LocalKnowledgeRepository:
             source_paths["video_database"] = str(integrated_path)
             source_summary["integrated_video_count"] = len(integrated.get("videos") or [])
             self._load_integrated_videos(integrated, definitions, alias_map, evidence, creators, videos)
+
+        profile_summary = self._load_video_ability_profiles(
+            definitions,
+            alias_map,
+            evidence,
+            creators,
+            videos,
+        )
+        if profile_summary["ability_profile_count"]:
+            source_paths["video_ability_profiles"] = str(
+                self.settings.output_dir / "*" / "ability_profile.json",
+            )
+            source_summary.update(profile_summary)
+
+        analytics = load_analytics_evidence(self.settings)
+        if analytics.get("status") == "ok":
+            source_paths["analytics_store"] = str(
+                analytics.get("database_path") or ""
+            )
+            summary = analytics.get("summary") or {}
+            source_summary.update(
+                {
+                    "analytics_video_count": summary.get("video_count", 0),
+                    "analytics_capability_evidence_count": summary.get(
+                        "capability_evidence_count",
+                        0,
+                    ),
+                    "analytics_audio_ready_count": summary.get(
+                        "audio_ready_count",
+                        0,
+                    ),
+                    "analytics_scene_ready_count": summary.get(
+                        "scene_ready_count",
+                        0,
+                    ),
+                    "analytics_visual_ready_count": summary.get(
+                        "visual_ready_count",
+                        0,
+                    ),
+                    "analytics_audio_coverage": summary.get(
+                        "audio_coverage",
+                        0,
+                    ),
+                    "analytics_scene_coverage": summary.get(
+                        "scene_coverage",
+                        0,
+                    ),
+                    "analytics_visual_coverage": summary.get(
+                        "visual_coverage",
+                        0,
+                    ),
+                    "analytics_median_tempo_bpm": summary.get(
+                        "median_tempo_bpm",
+                    ),
+                    "analytics_median_scene_duration": summary.get(
+                        "median_scene_duration",
+                    ),
+                }
+            )
+            self._load_analytics_evidence(
+                analytics.get("records") or [],
+                definitions,
+                alias_map,
+                evidence,
+                creators,
+                videos,
+            )
 
         for key in list(definitions):
             evidence.setdefault(key, AbilityEvidence(key=key))
@@ -308,6 +376,160 @@ class LocalKnowledgeRepository:
                 if "question" in pattern_name:
                     key = self.resolve_ability_key("question_design", definitions, alias_map)
                     self._evidence_for(key, evidence).related_videos.add(video_id)
+
+    def _load_video_ability_profiles(
+        self,
+        definitions: dict[str, AbilityDefinition],
+        alias_map: dict[str, str],
+        evidence: dict[str, AbilityEvidence],
+        creators: dict[str, CreatorRecord],
+        videos: dict[str, VideoRecord],
+    ) -> dict[str, Any]:
+        profile_count = 0
+        evidence_count = 0
+        semantic_counts: dict[str, int] = {}
+        for path in sorted(self.settings.output_dir.glob("*/ability_profile.json")):
+            profile = read_json(path, {})
+            video_id = str(
+                profile.get("video_id")
+                or path.parent.name
+            ).strip()
+            if not video_id:
+                continue
+            profile_count += 1
+            author = str(profile.get("creator_name") or "").strip()
+            video = videos.setdefault(
+                video_id,
+                VideoRecord(video_id=video_id, author=author),
+            )
+            if not video.author:
+                video.author = author
+            if author and author not in creators:
+                creators[author] = CreatorRecord(
+                    name=author,
+                    video_count=1,
+                    source_authors=[author],
+                )
+
+            for ability in profile.get("abilities") or []:
+                raw_key = str(ability.get("ability_key") or "").strip()
+                key = alias_map.get(normalize_ability_key(raw_key))
+                if not key or key not in definitions:
+                    continue
+                item_evidence = ability.get("evidence") or []
+                if not item_evidence:
+                    continue
+                evidence_types = {
+                    str((entry.get("raw_value") or {}).get("evidence_type"))
+                    for entry in item_evidence
+                    if isinstance(entry.get("raw_value"), dict)
+                    and (entry.get("raw_value") or {}).get("evidence_type")
+                }
+                source = (
+                    "ability_profile:"
+                    + ",".join(sorted(evidence_types))
+                    if evidence_types
+                    else "ability_profile:ontology"
+                )
+                target = self._evidence_for(key, evidence)
+                target.source_categories.add("video_ability_profile")
+                target.related_videos.add(video_id)
+                if author:
+                    target.related_creators.add(author)
+                target.evidence_sources.add(source)
+                target.capability_documents.append(
+                    {
+                        "category": "video_ability_profile",
+                        "title": video.title,
+                        "reference_count": 1,
+                        "creator_count": 1 if author else 0,
+                        "video_id": video_id,
+                        "evidence_count": int(
+                            ability.get("evidence_count")
+                            or len(item_evidence),
+                        ),
+                        "mapping_confidence": ability.get(
+                            "mapping_confidence",
+                        ),
+                        "evidence_types": sorted(evidence_types),
+                    }
+                )
+                video.abilities.add(key)
+                evidence_count += 1
+                if evidence_types:
+                    semantic_counts[key] = semantic_counts.get(key, 0) + 1
+        return {
+            "ability_profile_count": profile_count,
+            "ability_profile_evidence_count": evidence_count,
+            "semantic_evidence_counts": semantic_counts,
+        }
+
+    def _load_analytics_evidence(
+        self,
+        records: list[dict[str, Any]],
+        definitions: dict[str, AbilityDefinition],
+        alias_map: dict[str, str],
+        evidence: dict[str, AbilityEvidence],
+        creators: dict[str, CreatorRecord],
+        videos: dict[str, VideoRecord],
+    ) -> None:
+        for record in records:
+            video_id = str(record.get("video_id") or "").strip()
+            if not video_id:
+                continue
+            author = str(record.get("author") or "").strip()
+            video = videos.setdefault(
+                video_id,
+                VideoRecord(
+                    video_id=video_id,
+                    title=str(record.get("title") or ""),
+                    author=author,
+                    duration=float(record.get("duration") or 0),
+                ),
+            )
+            if not video.title:
+                video.title = str(record.get("title") or "")
+            if not video.author:
+                video.author = author
+
+            for capability in record.get("capabilities") or []:
+                category = str(
+                    capability.get("category") or "structured_analytics"
+                )
+                source = str(
+                    capability.get("source") or "duckdb:analytics"
+                )
+                metrics = capability.get("metrics") or {}
+                for raw_key in capability.get("ability_keys") or []:
+                    key = self.resolve_ability_key(
+                        str(raw_key),
+                        definitions,
+                        alias_map,
+                    )
+                    target = self._evidence_for(key, evidence)
+                    target.source_categories.add(category)
+                    target.related_videos.add(video_id)
+                    if author:
+                        target.related_creators.add(author)
+                    target.evidence_sources.add(source)
+                    target.capability_documents.append(
+                        {
+                            "category": category,
+                            "title": video.title,
+                            "reference_count": 1,
+                            "creator_count": 1 if author else 0,
+                            "video_id": video_id,
+                            "metrics": metrics,
+                        }
+                    )
+                    video.abilities.add(key)
+
+            if author and author not in creators:
+                creators[author] = CreatorRecord(
+                    name=author,
+                    video_count=1,
+                    source_authors=[author],
+                )
 
     def _video_has_signal(self, item: dict[str, Any], fields: tuple[str, ...]) -> bool:
         for field in fields:

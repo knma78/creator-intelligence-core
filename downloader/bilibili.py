@@ -8,8 +8,16 @@ from pathlib import Path
 from typing import Any
 
 from config import SETTINGS, Settings
-from downloader.bilibili_common import apply_yt_dlp_auth_options, humanize_bilibili_error
+from downloader.bilibili_common import (
+    apply_yt_dlp_auth_options,
+    humanize_bilibili_error,
+    is_transient_bilibili_error,
+)
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import (
+    raise_if_cancelled,
+    sleep_with_cancellation,
+)
 from models import Video
 
 logger = logging.getLogger(__name__)
@@ -121,6 +129,10 @@ class BilibiliDownloader:
         self._save_metadata(video)
         return video
 
+    def probe(self, url: str) -> dict[str, Any]:
+        """Resolve metadata, subtitles and formats without downloading media."""
+        return self._extract_info(normalize_bilibili_url(url))
+
     def _extract_info(self, url: str) -> dict[str, Any]:
         try:
             import yt_dlp
@@ -134,6 +146,7 @@ class BilibiliDownloader:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=False)
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(humanize_bilibili_error(exc)) from exc
 
     def _download_official_subtitle_only(self, url: str, video_dir: Path, subtitle_lang: str) -> None:
@@ -155,11 +168,7 @@ class BilibiliDownloader:
         }
         apply_yt_dlp_auth_options(opts, self.settings)
 
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-        except Exception as exc:
-            raise RuntimeError(humanize_bilibili_error(exc)) from exc
+        self._run_ytdlp_download(yt_dlp, opts, url)
 
     def _download_with_ytdlp(self, url: str, video_dir: Path) -> None:
         try:
@@ -179,11 +188,33 @@ class BilibiliDownloader:
         }
         apply_yt_dlp_auth_options(opts, self.settings)
 
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-        except Exception as exc:
-            raise RuntimeError(humanize_bilibili_error(exc)) from exc
+        self._run_ytdlp_download(yt_dlp, opts, url)
+
+    def _run_ytdlp_download(
+        self,
+        yt_dlp: Any,
+        opts: dict[str, Any],
+        url: str,
+    ) -> None:
+        attempts = max(1, self.settings.bilibili_download_attempts)
+        for attempt in range(attempts):
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.download([url])
+                return
+            except Exception as exc:
+                raise_if_cancelled(None)
+                is_last = attempt + 1 >= attempts
+                if is_last or not is_transient_bilibili_error(exc):
+                    raise RuntimeError(humanize_bilibili_error(exc)) from exc
+                logger.warning(
+                    "Bilibili media download attempt %s/%s failed; "
+                    "keeping partial files for resume: %s",
+                    attempt + 1,
+                    attempts,
+                    exc,
+                )
+                sleep_with_cancellation(min(3, attempt + 1))
 
     def _load_cached_video(self, video_id: str) -> Video | None:
         metadata_path = self.settings.video_cache_dir / video_id / "metadata.json"

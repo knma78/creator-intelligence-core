@@ -1,0 +1,8 @@
+# Platform download, login automation and optional local playback capture.
+-r core.txt
+yt-dlp>=2025.1.15
+playwright==1.61.0
+aiofiles>=23.2.1
+aiosqlite>=0.19.0
+gmssl>=3.2.2
+PyAudioWPatch==0.2.12.8; platform_system == "Windows"

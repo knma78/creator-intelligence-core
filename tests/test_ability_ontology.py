@@ -75,7 +75,7 @@ class AbilityOntologyMigrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "dry_run")
         self.assertFalse(result["database_written"])
         self.assertFalse(self.database_path.exists())
-        self.assertEqual(result["counts"]["abilities"], 6)
+        self.assertEqual(result["counts"]["abilities"], 9)
         self.assertGreaterEqual(result["counts"]["term_mappings"], 8)
         self.assertEqual(
             before,
@@ -191,6 +191,59 @@ class AbilityOntologyMigrationTests(unittest.TestCase):
             2,
         )
 
+    def test_video_profile_detects_semantic_capability_signals(self) -> None:
+        self.migrator.migrate()
+        service = VideoAbilityProfileService(
+            self.settings,
+            self.repository,
+        )
+
+        profile = service.extract(
+            {
+                "video_id": "video-semantic",
+                "title": "挑战失败后，真相到底是什么",
+                "hook": {
+                    "评分": 8,
+                    "开头方式": "规则悬念+反差式开头",
+                },
+                "structure": [
+                    {"summary": "先建立挑战目标"},
+                    {"summary": "中段出现冲突和反转"},
+                    {"summary": "结尾揭晓结果"},
+                ],
+                "rhythm": {
+                    "节奏变化": "逐步加速",
+                    "高潮位置": "结尾",
+                },
+                "transitions": ["首先", "但是", "最后"],
+                "emotion": {"整体情绪": "紧张与搞笑交替"},
+                "learnings": ["用递进和悬念维持持续观看动力"],
+            },
+            transcript_tail="喜欢本期内容请点赞、关注并订阅。",
+        )
+
+        by_key = {
+            item["ability_key"]: item
+            for item in profile["abilities"]
+        }
+        self.assertTrue(
+            {"conflict", "suspense", "humor", "cta", "retention"}
+            <= set(by_key)
+        )
+        self.assertIsNone(by_key["retention"]["ability_score"])
+        retention_evidence = next(
+            item
+            for item in by_key["retention"]["evidence"]
+            if item["source_metric"] == "semantic_retention"
+        )
+        self.assertEqual(
+            retention_evidence["raw_value"]["evidence_type"],
+            "design_proxy",
+        )
+        self.assertFalse(
+            retention_evidence["raw_value"]["measurement_available"],
+        )
+
     def test_reviewer_adapter_preserves_original_and_adds_gap_output(self) -> None:
         self.migrator.migrate()
         adapter = OntologyReviewerAdapter(
@@ -280,6 +333,18 @@ class AbilityOntologyMigrationTests(unittest.TestCase):
             "humor": self._ability(
                 "Humor",
                 "Use contrast and timing to create humor.",
+            ),
+            "suspense": self._ability(
+                "Suspense",
+                "Delay a meaningful answer or outcome.",
+            ),
+            "retention": self._ability(
+                "Retention",
+                "Sustain reasons to continue watching.",
+            ),
+            "cta": self._ability(
+                "CTA",
+                "Guide a relevant viewer action.",
             ),
             "hook": self._ability(
                 "Hook",

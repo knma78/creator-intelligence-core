@@ -45,6 +45,112 @@ ANALYSIS_METRICS: dict[str, tuple[tuple[str, ...], ...]] = {
     ),
 }
 
+SEMANTIC_SIGNAL_RULES: dict[str, dict[str, Any]] = {
+    "conflict": {
+        "keywords": (
+            "冲突",
+            "反差",
+            "矛盾",
+            "对抗",
+            "对立",
+            "争夺",
+            "竞争",
+            "挑战",
+            "危机",
+            "风险",
+            "阻力",
+            "失败",
+            "惩罚",
+            "生死",
+            "战争",
+        ),
+        "fields": (
+            "title",
+            "hook_style",
+            "hook_evidence",
+            "summary",
+            "structure",
+            "learnings",
+            "emotion",
+        ),
+        "confidence": 0.68,
+    },
+    "suspense": {
+        "keywords": (
+            "悬念",
+            "谜团",
+            "谜底",
+            "未知",
+            "真相",
+            "揭晓",
+            "反转",
+            "结果",
+            "究竟",
+            "到底",
+            "为什么",
+            "怎么",
+            "能否",
+            "是否",
+            "期待",
+            "预告",
+        ),
+        "fields": (
+            "title",
+            "hook_style",
+            "hook_evidence",
+            "summary",
+            "structure",
+            "learnings",
+        ),
+        "confidence": 0.66,
+    },
+    "humor": {
+        "keywords": (
+            "幽默",
+            "搞笑",
+            "笑点",
+            "包袱",
+            "段子",
+            "调侃",
+            "自嘲",
+            "荒诞",
+            "喜剧",
+            "玩梗",
+            "反讽",
+            "滑稽",
+            "欢乐",
+            "欢笑",
+        ),
+        "fields": (
+            "title",
+            "hook_style",
+            "summary",
+            "structure",
+            "learnings",
+            "emotion",
+        ),
+        "confidence": 0.64,
+    },
+    "cta": {
+        "keywords": (
+            "一键三连",
+            "三连",
+            "点赞",
+            "投币",
+            "收藏",
+            "关注",
+            "订阅",
+            "转发",
+            "评论区",
+            "点击链接",
+            "加入我们",
+            "下载",
+        ),
+        "fields": ("transcript_tail",),
+        "confidence": 0.72,
+    },
+}
+
 
 def read_json(path: Path, default: Any) -> Any:
     if not path.exists():
@@ -82,6 +188,7 @@ class VideoAbilityProfileService:
         source_analysis_ref: str = "",
         save: bool = False,
         extra_observations: Iterable[dict[str, Any]] | None = None,
+        transcript_tail: str = "",
     ) -> dict[str, Any]:
         video_id = str(
             analysis.get("video_id")
@@ -109,6 +216,7 @@ class VideoAbilityProfileService:
             v3 or {},
             source_analysis_ref,
             ontology_version,
+            transcript_tail,
         )
         observations.extend(list(extra_observations or []))
         observations = self._deduplicate_observations(observations)
@@ -313,6 +421,7 @@ class VideoAbilityProfileService:
         v3: dict[str, Any],
         source_analysis_ref: str,
         ontology_version: str,
+        transcript_tail: str,
     ) -> list[dict[str, Any]]:
         observations: list[dict[str, Any]] = []
         for metric, paths in ANALYSIS_METRICS.items():
@@ -349,7 +458,209 @@ class VideoAbilityProfileService:
                         "source_analysis_ref": source_analysis_ref,
                     }
                 )
+        semantic_values = self._semantic_values(
+            analysis,
+            v3,
+            transcript_tail,
+        )
+        detected: set[str] = set()
+        for ability_key, rule in SEMANTIC_SIGNAL_RULES.items():
+            signal = self._match_semantic_signal(
+                semantic_values,
+                tuple(rule["fields"]),
+                tuple(rule["keywords"]),
+            )
+            if not signal:
+                continue
+            observation = self._semantic_observation(
+                video_id,
+                creator_name,
+                ability_key,
+                signal,
+                float(rule["confidence"]),
+                source_analysis_ref,
+                ontology_version,
+                evidence_type="semantic_signal",
+            )
+            if observation:
+                observations.append(observation)
+                detected.add(ability_key)
+
+        retention = self._retention_design_signal(
+            analysis,
+            semantic_values,
+            detected,
+        )
+        if retention:
+            observation = self._semantic_observation(
+                video_id,
+                creator_name,
+                "retention",
+                retention,
+                0.62,
+                source_analysis_ref,
+                ontology_version,
+                evidence_type="design_proxy",
+            )
+            if observation:
+                observations.append(observation)
         return observations
+
+    def _semantic_values(
+        self,
+        analysis: dict[str, Any],
+        v3: dict[str, Any],
+        transcript_tail: str,
+    ) -> dict[str, str]:
+        hook = analysis.get("hook") or {}
+        return {
+            "title": self._searchable_text(analysis.get("title")),
+            "hook_style": self._searchable_text(
+                hook.get("开头方式") or hook.get("style"),
+            ),
+            "hook_evidence": self._searchable_text(
+                hook.get("作用")
+                or hook.get("证据")
+                or hook.get("evidence"),
+            ),
+            "summary": self._searchable_text(
+                analysis.get("one_sentence_summary")
+                or analysis.get("summary"),
+            ),
+            "structure": self._searchable_text(
+                analysis.get("structure"),
+            ),
+            "learnings": self._searchable_text(
+                analysis.get("learnings"),
+            ),
+            "emotion": self._searchable_text(
+                analysis.get("emotion"),
+            ),
+            "transcript_tail": self._searchable_text(transcript_tail),
+        }
+
+    def _match_semantic_signal(
+        self,
+        values: dict[str, str],
+        fields: tuple[str, ...],
+        keywords: tuple[str, ...],
+    ) -> dict[str, Any] | None:
+        matches: dict[str, list[str]] = {}
+        for field in fields:
+            text = values.get(field, "")
+            found = [keyword for keyword in keywords if keyword in text]
+            if found:
+                matches[field] = found[:6]
+        if not matches:
+            return None
+        return {
+            "matched_fields": sorted(matches),
+            "matched_signals": sorted(
+                {signal for values in matches.values() for signal in values},
+            )[:12],
+        }
+
+    def _retention_design_signal(
+        self,
+        analysis: dict[str, Any],
+        semantic_values: dict[str, str],
+        detected: set[str],
+    ) -> dict[str, Any] | None:
+        signals: list[str] = []
+        hook = analysis.get("hook") or {}
+        if has_value(hook.get("评分") or hook.get("score")):
+            signals.append("scored_hook")
+        if len(analysis.get("structure") or []) >= 3:
+            signals.append("multi_stage_structure")
+        rhythm = analysis.get("rhythm") or {}
+        if has_value(
+            rhythm.get("节奏变化")
+            or rhythm.get("change")
+            or analysis.get("rhythm_change"),
+        ):
+            signals.append("rhythm_change")
+        if has_value(
+            rhythm.get("高潮位置")
+            or rhythm.get("peak")
+            or analysis.get("rhythm_peak"),
+        ):
+            signals.append("climax_position")
+        if len(analysis.get("transitions") or []) >= 3:
+            signals.append("transition_chain")
+        if detected & {"conflict", "suspense"}:
+            signals.append("renewed_information_gap")
+        retention_terms = (
+            "持续观看",
+            "观看动力",
+            "保持观众",
+            "留存",
+            "节奏",
+            "递进",
+            "高潮",
+            "反转",
+        )
+        if any(
+            term in semantic_values.get("learnings", "")
+            for term in retention_terms
+        ):
+            signals.append("explicit_retention_method")
+        if len(set(signals)) < 3:
+            return None
+        return {
+            "signals": sorted(set(signals)),
+            "measurement_available": False,
+            "interpretation": "retention_design_proxy",
+        }
+
+    def _semantic_observation(
+        self,
+        video_id: str,
+        creator_name: str,
+        ability_key: str,
+        signal: dict[str, Any],
+        confidence: float,
+        source_analysis_ref: str,
+        ontology_version: str,
+        *,
+        evidence_type: str,
+    ) -> dict[str, Any] | None:
+        ability = self.repository.get_ability(ability_key)
+        if not ability:
+            return None
+        source_metric = f"semantic_{ability_key}"
+        return {
+            "observation_id": stable_id(
+                "video_observation",
+                video_id,
+                ability["ability_id"],
+                source_metric,
+                ontology_version,
+            ),
+            "video_id": video_id,
+            "creator_name": creator_name,
+            "ability_id": ability["ability_id"],
+            "ability_key": ability["ability_key"],
+            "ability_name": ability["ability_name"],
+            "source_metric": source_metric,
+            "raw_value": {
+                "evidence_type": evidence_type,
+                **signal,
+            },
+            "observed_score": None,
+            "confidence": confidence,
+            "source_analysis_ref": source_analysis_ref,
+        }
+
+    def _searchable_text(self, value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.lower()
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+        ).lower()
 
     def _resolve_required_abilities(
         self,

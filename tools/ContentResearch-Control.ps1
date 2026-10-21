@@ -236,7 +236,7 @@ function Start-WebUi {
         if ($process.HasExited) {
             break
         }
-        $health = Get-WebHealth -Url $url -TimeoutSeconds 2
+        $health = Get-WebHealth -Url $url -TimeoutSeconds 5
         if ($health) {
             break
         }

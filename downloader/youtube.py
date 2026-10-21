@@ -10,6 +10,7 @@ from typing import Any
 from config import SETTINGS, Settings
 from downloader.yt_dlp_common import apply_yt_dlp_options
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import raise_if_cancelled
 from models import Video
 
 
@@ -102,6 +103,7 @@ class YoutubeDownloader:
             with yt_dlp.YoutubeDL(self._base_options(quiet=True)) as ydl:
                 return ydl.extract_info(url, download=False)
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(self._humanize_error(exc)) from exc
 
     def _download_subtitle(self, url: str, video_dir: Path, language: str, automatic: bool) -> None:
@@ -122,6 +124,7 @@ class YoutubeDownloader:
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.download([url])
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(self._humanize_error(exc)) from exc
 
     def _download_video(self, url: str, video_dir: Path) -> None:
@@ -139,6 +142,7 @@ class YoutubeDownloader:
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.download([url])
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(self._humanize_error(exc)) from exc
 
     def _base_options(self, quiet: bool) -> dict[str, Any]:

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from config import SETTINGS, Settings
+from infrastructure.cancellation import raise_if_cancelled
 from models import Transcript, TranscriptSegment, Video
 from processor.ffmpeg import extract_audio
 from processor.subtitle import subtitle_to_transcript
@@ -18,7 +19,10 @@ def process_video(
     video: Video,
     settings: Settings = SETTINGS,
     progress_callback: Callable[[str, int, str], None] | None = None,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> Transcript:
+    raise_if_cancelled(cancel_requested)
     transcript_dir = settings.transcript_cache_dir / video.video_id
     cached = _load_cached_transcript(video.video_id, transcript_dir)
     if cached and not settings.overwrite_cache:
@@ -39,13 +43,30 @@ def process_video(
             source="platform_subtitle",
         )
 
-    if not video.video_path or not video.video_path.exists():
-        raise FileNotFoundError(f"Video file is missing for {video.video_id}")
-
     audio_path = transcript_dir / "audio.wav"
-    if progress_callback:
-        progress_callback("提取音频", 48, "没有官方字幕，正在用 FFmpeg 提取音频。")
-    extract_audio(video.video_path, audio_path, settings)
+    playback_audio = video.extra_metadata.get("playback_audio_path")
+    playback_audio_path = Path(str(playback_audio)) if playback_audio else None
+    if playback_audio_path and playback_audio_path.exists():
+        audio_path = playback_audio_path
+        if progress_callback:
+            progress_callback(
+                "播放采集音频",
+                52,
+                "正在使用经用户允许录制的本地系统播放音频。",
+            )
+    else:
+        if not video.video_path or not video.video_path.exists():
+            raise FileNotFoundError(f"Video file is missing for {video.video_id}")
+        if progress_callback:
+            progress_callback("提取音频", 48, "没有官方字幕，正在用 FFmpeg 提取音频。")
+        raise_if_cancelled(cancel_requested)
+        extract_audio(
+            video.video_path,
+            audio_path,
+            settings,
+            cancel_requested=cancel_requested,
+        )
+        raise_if_cancelled(cancel_requested)
     whisper_language = _whisper_language_for_video(video, settings)
     if progress_callback:
         language_label = whisper_language or "自动检测"
@@ -61,6 +82,7 @@ def process_video(
         settings,
         progress_callback=progress_callback,
         language=whisper_language,
+        cancel_requested=cancel_requested,
     )
 
 

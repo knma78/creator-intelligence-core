@@ -1,0 +1,16 @@
+# Whisper, OCR, semantic retrieval, V3 analysis and structured analytics.
+-r core.txt
+faster-whisper>=1.1.0
+rapidocr-onnxruntime>=1.2.3
+spacy>=3.8,<3.9
+zh-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.8.0/zh_core_web_sm-3.8.0-py3-none-any.whl
+sentence-transformers>=5,<6
+transformers>=4.41,<5
+huggingface-hub<1
+chromadb>=1,<2
+langgraph>=1,<2
+scenedetect[opencv]>=0.6.7,<0.7
+opencv-python>=4.13,<6
+duckdb>=1.4,<2
+open-clip-torch>=3,<4
+librosa>=0.11,<0.12

@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from dataclasses import replace
 from pathlib import Path
 
 from config import SETTINGS, Settings, setup_logging
+from infrastructure.file_lock import maintenance_lock
 from downloader.bilibili import is_bilibili_url
 from downloader.bilibili_up import is_bilibili_up_source
 from downloader.social import detect_social_platform, is_douyin_profile_url
@@ -16,6 +18,17 @@ from pipeline.content import run_content_pipeline
 from pipeline.run import run_video_pipeline
 
 logger = logging.getLogger(__name__)
+
+
+def _configure_console_encoding() -> None:
+    """Keep structured Chinese CLI output readable on Windows consoles."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8")
+            except (OSError, ValueError):
+                pass
 
 
 def run_pipeline(source: str, settings: Settings = SETTINGS, enrich_v3: bool = False) -> Path:
@@ -86,12 +99,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--up-advisor", help="Ask which UP series should be crawled next for a target direction.")
     parser.add_argument("--gap-analysis", action="store_true", help="Run rule-first Knowledge Gap Analysis.")
     parser.add_argument("--gap-ability", help="Optional ability key/name for focused gap analysis.")
+    parser.add_argument(
+        "--capability-plan",
+        help="Match conditional knowledge rules into a layered candidate ability plan.",
+    )
     parser.add_argument("--project-report", action="store_true", help="Build a project-level integrated information report.")
     parser.add_argument("--top-k", type=int, default=5, help="Search result count.")
     return parser.parse_args()
 
 
 def main() -> None:
+    _configure_console_encoding()
     args = parse_args()
     settings = replace(SETTINGS, overwrite_cache=args.overwrite)
     setup_logging(settings)
@@ -145,6 +163,13 @@ def main() -> None:
                 f"Health: {result['knowledge_health']['overall_score']} "
                 f"({result['knowledge_health']['status']})"
             )
+            return
+
+        if args.capability_plan is not None and not args.source:
+            from intelligence.capability_planner import build_capability_plan
+
+            result = build_capability_plan(args.capability_plan)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
             return
 
         if args.creator_search:
@@ -311,4 +336,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    with maintenance_lock(SETTINGS, exclusive=False):
+        main()

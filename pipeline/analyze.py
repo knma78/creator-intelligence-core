@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Callable
 
 from analyzer.analyze import run_analysis
 from config import SETTINGS, Settings
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import raise_if_cancelled
 from models import AnalysisResult, Transcript, Video
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,10 @@ def analyze_transcript(
     video: Video,
     transcript: Transcript,
     settings: Settings = SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> AnalysisResult:
+    raise_if_cancelled(cancel_requested)
     analysis_dir = settings.analysis_cache_dir / video.video_id
     analysis_path = analysis_dir / "analysis.json"
     if analysis_path.exists() and not settings.overwrite_cache:
@@ -23,7 +28,13 @@ def analyze_transcript(
         return AnalysisResult.from_dict(json.loads(analysis_path.read_text(encoding="utf-8")))
 
     analysis_dir.mkdir(parents=True, exist_ok=True)
-    result = run_analysis(video, transcript, settings)
+    result = run_analysis(
+        video,
+        transcript,
+        settings,
+        cancel_requested=cancel_requested,
+    )
+    raise_if_cancelled(cancel_requested)
     atomic_write_json(analysis_path, result.to_dict())
     return result
 

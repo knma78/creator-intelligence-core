@@ -4,7 +4,6 @@ import hashlib
 import json
 import logging
 import re
-import time
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -12,6 +11,11 @@ from config import SETTINGS, Settings
 from downloader.youtube import is_youtube_channel_url, normalize_youtube_channel_url
 from downloader.yt_dlp_common import apply_yt_dlp_options
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import (
+    JobCancelledError,
+    raise_if_cancelled,
+    sleep_with_cancellation,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -30,12 +34,14 @@ def youtube_channel_cache_key(source: str) -> str:
 class YoutubeChannelCrawler:
     def __init__(self, settings: Settings = SETTINGS):
         self.settings = settings
+        self.last_list_complete = False
 
     def fetch_video_sources(
         self,
         source: str,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
+        self.last_list_complete = False
         if not is_youtube_channel_url(source):
             raise ValueError(f"无法识别 YouTube 频道主页: {source}")
         normalized = normalize_youtube_channel_url(source)
@@ -49,6 +55,10 @@ class YoutubeChannelCrawler:
             stale_entries = entries if isinstance(entries, list) else []
             if stale_entries and len(stale_entries) >= limit:
                 logger.info("Using cached YouTube channel list: %s", cache_path)
+                self.last_list_complete = (
+                    bool(cached.get("complete"))
+                    and len(stale_entries) <= limit
+                )
                 return stale_entries[:limit]
 
         try:
@@ -58,7 +68,10 @@ class YoutubeChannelCrawler:
                 for seed in (_entry_to_video_seed(entry) for entry in _iter_entries(info))
                 if seed.get("source_url")
             ][:limit]
+        except JobCancelledError:
+            raise
         except Exception as exc:
+            raise_if_cancelled(None)
             if stale_entries:
                 logger.warning(
                     "Using stale YouTube channel cache after live fetch failed: %s",
@@ -82,10 +95,12 @@ class YoutubeChannelCrawler:
             "channel_id": info.get("id"),
             "channel_title": info.get("channel") or info.get("uploader") or info.get("title"),
             "limit": limit,
+            "complete": len(videos) < limit,
             "videos": videos,
         }
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_json(cache_path, payload)
+        self.last_list_complete = len(videos) < limit
         return videos
 
     def _extract_channel_info(self, source: str, limit: int) -> dict[str, Any]:
@@ -116,6 +131,7 @@ class YoutubeChannelCrawler:
                 if isinstance(info, dict):
                     return info
             except Exception as exc:
+                raise_if_cancelled(None)
                 last_error = exc
                 logger.info(
                     "YouTube channel list fetch attempt %s failed: %s",
@@ -123,7 +139,7 @@ class YoutubeChannelCrawler:
                     exc,
                 )
                 if attempt == 0:
-                    time.sleep(1)
+                    sleep_with_cancellation(1)
         if last_error:
             raise last_error
         raise RuntimeError("YouTube 返回了无效的频道信息。")

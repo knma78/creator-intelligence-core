@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#060b0e" />
     <title>Content Research</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="/static/styles.css?v=20260730-content-works-1" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260820-script-video-3" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,6 +22,14 @@
           <button class="nav-item active" data-panel="runPanel" type="button">
             <span class="icon">▶</span>
             <span>内容研究</span>
+          </button>
+          <button class="nav-item" data-panel="productionPanel" type="button">
+            <span class="icon">◉</span>
+            <span>视频生产</span>
+          </button>
+          <button class="nav-item" data-panel="novelPanel" type="button">
+            <span class="icon">✦</span>
+            <span>小说创作</span>
           </button>
           <button class="nav-item" data-panel="reportPanel" type="button">
             <span class="icon">◆</span>
@@ -95,7 +103,7 @@
             <div class="analysis-config-grid">
               <div class="field-block analysis-source">
                 <label for="sourceInput">分析需求</label>
-                <textarea id="sourceInput" name="source" rows="5" placeholder="输入 B站 / YouTube / 抖音视频链接、创作者主页、UP 名或本地文件路径"></textarea>
+                <textarea id="sourceInput" name="source" rows="5" placeholder="输入 B站视频/电影/番剧季页面、创作者主页或其他平台视频链接"></textarea>
                 <span id="sourceHint" class="field-hint">支持单视频、创作者批量、内容作品和本地媒体</span>
               </div>
 
@@ -145,7 +153,19 @@
                     <span class="switch-track"></span>
                     <span>构建知识库</span>
                   </label>
+
+                  <label class="switch">
+                    <input id="playbackCaptureInput" type="checkbox" />
+                    <span class="switch-track"></span>
+                    <span>允许本地播放采集</span>
+                  </label>
+
+                  <div class="field-block small">
+                    <label for="captureDurationInput">采集秒数</label>
+                    <input id="captureDurationInput" type="number" min="10" max="14400" value="300" />
+                  </div>
                 </div>
+                <div class="capture-consent-hint">本地播放采集仅在B站观看资格通过但没有可下载媒体流时启动；WASAPI 会录制所选输出设备上的全部系统声音。</div>
               </div>
             </div>
 
@@ -163,6 +183,10 @@
                 <button id="bilibiliAuthButton" class="ghost-button compact-button" type="button">
                   <span class="button-icon">◎</span>
                   <span>登录B站</span>
+                </button>
+                <button id="bilibiliEntitlementButton" class="ghost-button compact-button" type="button">
+                  <span class="button-icon">✓</span>
+                  <span>检测权限</span>
                 </button>
               </div>
 
@@ -196,6 +220,7 @@
                 </button>
               </div>
             </div>
+            <div id="bilibiliEntitlementStatus" class="entitlement-status">输入B站视频后可独立检测账号、内容权限和建议采集方案。</div>
 
             <div class="action-row">
               <button id="startButton" class="primary-button" type="submit">
@@ -217,7 +242,18 @@
             <section class="surface">
               <div class="surface-header">
                 <h2>任务进度 / 时间线 / 日志</h2>
-                <span id="jobBadge" class="badge idle">等待输入</span>
+                <div class="task-header-actions">
+                  <span id="jobBadge" class="badge idle">等待输入</span>
+                  <button
+                    id="cancelJobButton"
+                    class="compact-button cancel-job-button"
+                    type="button"
+                    aria-label="取消当前任务"
+                    hidden
+                  >
+                    取消任务
+                  </button>
+                </div>
               </div>
               <div class="progress-summary" aria-live="polite">
                 <span id="currentStage">等待任务开始</span>
@@ -254,6 +290,7 @@
                 </div>
                 <div class="whisper-progress-footer">
                   <span id="whisperRuntimeReason">读取Whisper运行状态</span>
+                  <button id="stopCaptureButton" class="ghost-button compact-button" type="button" hidden>停止录制并继续分析</button>
                   <strong id="whisperPhasePercent">准备中</strong>
                 </div>
               </div>
@@ -278,6 +315,247 @@
                 <div class="empty-state">任务完成后会显示 Markdown、JSON、字幕、知识库和 V4 报告文件。</div>
               </div>
             </section>
+          </div>
+        </section>
+
+        <section id="productionPanel" class="panel">
+          <div class="production-hero">
+            <div>
+              <span class="eyebrow">LOCAL VIDEO FACTORY</span>
+              <h2>从研究结论或文稿到 CapCut 可编辑工程</h2>
+              <p>既能把已有视频的精选片段送入 CapCut，也能从文稿生成旁白、分镜、独立字幕轨和可编辑草稿；程序自动生成 MP4 预览并做质检，最后在 CapCut 中完成审看与导出。</p>
+            </div>
+            <div class="production-runtime-strip" aria-label="视频生产运行状态">
+              <span id="productionFfmpegBadge" class="production-runtime-badge">FFmpeg 检测中</span>
+              <span id="productionGpuBadge" class="production-runtime-badge">NVENC 检测中</span>
+              <span id="productionCapcutBadge" class="production-runtime-badge">CapCut 检测中</span>
+            </div>
+          </div>
+
+          <div class="production-layout">
+            <form id="productionForm" class="surface production-config">
+              <div class="surface-header">
+                <div>
+                  <span class="eyebrow">01 / CONFIGURE</span>
+                  <h2>成片配置</h2>
+                </div>
+                <button id="productionRefreshButton" class="ghost-button compact-button" type="button">刷新素材</button>
+              </div>
+
+              <div class="field-block">
+                <label for="productionModeSelect">生产方式</label>
+                <select id="productionModeSelect">
+                  <option value="script">文稿生成 CapCut 工程</option>
+                  <option value="clip">已有视频截取并生成 CapCut 工程</option>
+                </select>
+                <span class="field-hint">文稿模式使用蒸馏规则、可审计素材评分、Edge TTS 和 FFmpeg/NVENC；最终自动创建含独立旁白和字幕轨的 CapCut 草稿。</span>
+              </div>
+
+              <div id="productionScriptFields" class="production-script-fields">
+                <div class="field-block">
+                  <label for="productionTitleInput">视频标题（可选）</label>
+                  <input id="productionTitleInput" type="text" maxlength="100" placeholder="例如：为什么水星会变成太空骷髅" />
+                </div>
+                <div class="field-block">
+                  <label for="productionScriptInput">旁白文稿</label>
+                  <textarea id="productionScriptInput" rows="9" minlength="20" maxlength="20000" required placeholder="输入至少 20 个字符。程序会生成旁白、字幕、分镜、MP4 预览、QA 报告和 CapCut 可编辑草稿。"></textarea>
+                  <span id="productionScriptHint" class="field-hint">已有蒸馏数据只提供制作规则和可检索素材，不会改写你的文稿。</span>
+                </div>
+                <div class="production-control-grid">
+                  <div class="field-block">
+                    <label for="productionVoiceSelect">中文旁白</label>
+                    <select id="productionVoiceSelect">
+                      <option value="zh-CN-XiaoxiaoNeural">晓晓 · 女声</option>
+                      <option value="zh-CN-YunxiNeural">云希 · 男声</option>
+                      <option value="zh-CN-YunjianNeural">云健 · 男声</option>
+                    </select>
+                  </div>
+                  <div class="field-block">
+                    <label for="productionRateSelect">语速</label>
+                    <select id="productionRateSelect">
+                      <option value="+0%">自然</option>
+                      <option value="+5%" selected>稍快</option>
+                      <option value="+10%">短视频节奏</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div id="productionClipFields" class="production-clip-fields" hidden>
+              <div class="field-block">
+                <label for="productionSourceSelect">已有研究视频</label>
+                <select id="productionSourceSelect">
+                  <option value="">正在读取研究结果…</option>
+                </select>
+                <span id="productionSourceHint" class="field-hint">仅显示已经生成 analysis.json 的研究任务。</span>
+              </div>
+              </div>
+
+              <div class="production-control-grid">
+                <div class="field-block">
+                  <label for="productionPlatformSelect">目标平台</label>
+                  <select id="productionPlatformSelect">
+                    <option value="douyin">抖音 / 1080×1920</option>
+                    <option value="xiaohongshu">小红书 / 1080×1920</option>
+                    <option value="bilibili">B站 / 1920×1080</option>
+                    <option value="youtube">YouTube / 1920×1080</option>
+                    <option value="square">方形 / 1080×1080</option>
+                  </select>
+                </div>
+                <div id="productionTargetField" class="field-block">
+                  <label for="productionTargetInput">目标时长（秒）</label>
+                  <input id="productionTargetInput" type="number" min="15" max="1800" value="60" />
+                </div>
+                <div class="field-block">
+                  <label for="productionFpsSelect">帧率</label>
+                  <select id="productionFpsSelect">
+                    <option value="30">30 FPS</option>
+                    <option value="25">25 FPS</option>
+                    <option value="60">60 FPS</option>
+                  </select>
+                </div>
+                <div id="productionEngineField" class="field-block">
+                  <label for="productionEngineSelect">MP4 预览渲染器</label>
+                  <select id="productionEngineSelect">
+                    <option value="ffmpeg">FFmpeg / NVENC（预览与质检）</option>
+                  </select>
+                </div>
+              </div>
+
+              <label class="switch production-switch">
+                <input id="productionSubtitleInput" type="checkbox" checked />
+                <span class="switch-track"></span>
+                  <span>烧录自动生成或重排后的字幕</span>
+              </label>
+
+              <div class="production-actions">
+                <button id="productionPlanButton" class="secondary-button" type="button">
+                  <span class="button-icon">◇</span>
+                  <span>预览分镜计划</span>
+                </button>
+                <button id="productionRenderButton" class="primary-button" type="submit">
+                  <span class="button-icon">▶</span>
+                  <span>生成 CapCut 草稿</span>
+                </button>
+              </div>
+            </form>
+
+            <div class="production-workspace">
+              <section class="surface production-plan-surface">
+                <div class="surface-header">
+                  <div>
+                    <span class="eyebrow">02 / EDIT PLAN</span>
+                    <h2>自动剪辑清单</h2>
+                  </div>
+                  <span id="productionPlanMeta" class="muted">尚未生成</span>
+                </div>
+                <div id="productionPlanPreview" class="production-plan-preview">
+                  <div class="empty-state">输入文稿后可预览粗分镜；旁白生成后会按真实时长重新计算，并把素材选择写入 JSON。</div>
+                </div>
+              </section>
+
+              <section class="surface production-job-surface">
+                <div class="surface-header">
+                  <div>
+                    <span class="eyebrow">03 / CAPCUT DRAFT</span>
+                    <h2>CapCut 工程任务</h2>
+                  </div>
+                  <div class="task-header-actions">
+                    <span id="productionJobBadge" class="badge idle">等待任务</span>
+                    <button id="productionCancelButton" class="compact-button cancel-job-button" type="button" hidden>取消任务</button>
+                  </div>
+                </div>
+                <div class="progress-summary">
+                  <span id="productionStage">等待开始</span>
+                  <strong id="productionProgressPercent">0%</strong>
+                </div>
+                <div id="productionProgressTrack" class="progress-track" role="progressbar" aria-label="视频生产进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <div id="productionProgressBar" class="progress-bar"></div>
+                </div>
+                <pre id="productionJobLog" class="log-box production-log">等待视频生产任务开始。</pre>
+                <div id="productionFiles" class="result-list empty">
+                  <div class="empty-state">成片、剪辑计划、重排字幕、渲染记录和 QA 报告将在这里显示。</div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section id="novelPanel" class="panel">
+          <div class="novel-hero surface">
+            <div>
+              <span class="eyebrow">LOCAL WRITING STUDIO</span>
+              <h2>用你的 novel-writing Skill 创作</h2>
+              <p>直接读取本机 Skill 的最新规范，支持设定、大纲、章节、续写、改写、诊断与修订。任务可取消，成品与创作记录会保存在本地。</p>
+            </div>
+            <div class="novel-skill-state" aria-live="polite">
+              <div class="novel-status-line">
+                <span id="novelSkillBadge" class="novel-skill-badge checking">SKILL CHECK</span>
+                <span id="novelSkillMeta" class="muted">正在检查本机 Skill</span>
+              </div>
+              <div class="novel-status-line">
+                <span id="novelReviewBadge" class="novel-skill-badge checking">NATIVE QA CHECK</span>
+                <span id="novelReviewMeta" class="muted">正在检查英语质检运行环境</span>
+              </div>
+            </div>
+          </div>
+          <div class="surface novel-workspace">
+            <form id="novelForm" class="novel-form">
+              <div class="novel-control-grid">
+                <div class="field-block">
+                  <label for="novelOperationInput">创作类型</label>
+                  <select id="novelOperationInput">
+                    <option value="concept">故事设定</option>
+                    <option value="outline">长篇大纲</option>
+                    <option value="chapter" selected>章节创作</option>
+                    <option value="continue">续写</option>
+                    <option value="rewrite">改写</option>
+                    <option value="diagnose">诊断</option>
+                    <option value="revise">修订</option>
+                  </select>
+                </div>
+                <div class="field-block">
+                  <label for="novelLanguageInput">输出语言</label>
+                  <select id="novelLanguageInput">
+                    <option value="zh-CN" selected>简体中文</option>
+                    <option value="en-US">English · US</option>
+                    <option value="en-GB">English · UK</option>
+                  </select>
+                </div>
+                <div class="field-block">
+                  <label id="novelTargetLabel" for="novelTargetCharsInput">目标字数</label>
+                  <input id="novelTargetCharsInput" type="number" min="300" max="20000" step="100" value="3000" />
+                </div>
+                <label class="switch novel-corpus-switch">
+                  <input id="novelCorpusInput" type="checkbox" />
+                  <span class="switch-track"></span>
+                  <span>启用本地语料观察</span>
+                </label>
+              </div>
+              <label id="novelNativeReviewWrap" class="switch novel-review-switch" hidden>
+                <input id="novelNativeReviewInput" type="checkbox" checked />
+                <span class="switch-track"></span>
+                <span>
+                  母语化质检并自动修订
+                  <small>独立评分英语自然度、对白、地区拼写、朗读清晰度和网文机制；未达标时修订一次并复检。</small>
+                </span>
+              </label>
+              <div class="field-block">
+                <label for="novelRequestInput">创作要求</label>
+                <textarea id="novelRequestInput" rows="7" placeholder="例如：写一章都市悬疑小说。主角发现每天凌晨三点，楼上都会传来一段属于自己的录音。重点推进恐惧与求证之间的选择。"></textarea>
+              </div>
+              <div id="novelSourceField" class="field-block" hidden>
+                <label for="novelSourceInput">原文</label>
+                <textarea id="novelSourceInput" rows="10" placeholder="续写、改写、诊断或修订时，在这里粘贴原文。"></textarea>
+              </div>
+              <div class="novel-actions">
+                <span id="novelFormHint" class="muted">章节创作会遵循故事契约、场景转折与章节钩子检查。</span>
+                <button id="novelSubmitButton" class="primary-button" type="submit" disabled>
+                  <span class="button-icon">✦</span>
+                  <span>开始创作</span>
+                </button>
+              </div>
+            </form>
           </div>
         </section>
 
@@ -346,6 +624,48 @@
             </div>
             <div id="knowledgeStatus" class="knowledge-status">
               <div class="empty-state">加载中...</div>
+            </div>
+            <div class="knowledge-review-header">
+              <h3>数据保护</h3>
+            </div>
+            <section id="dataProtection" class="knowledge-rule-card" aria-label="数据保护">
+              <p>默认备份分析证据、规则与复核、抓取进度和工具内制作资料。下载视频、模型可选；外部 CapCut 草稿和登录会话不包含在内。</p>
+              <div class="knowledge-review-actions">
+                <button id="dataInventoryButton" class="ghost-button" type="button">查看数据与备份</button>
+                <label><input id="dataIncludeMedia" type="checkbox">包含下载视频与音频</label>
+                <label><input id="dataIncludeModels" type="checkbox">包含模型</label>
+                <button class="primary-button" data-data-operation="backup" type="button">创建并校验备份</button>
+              </div>
+              <p id="dataInventorySummary" class="muted">点击查看数据与已有备份。</p>
+              <label class="knowledge-reviewer-field">选择备份
+                <select id="dataSnapshotSelect"><option value="">尚未读取</option></select>
+              </label>
+              <div class="knowledge-review-actions">
+                <button class="ghost-button" data-data-operation="verify" type="button">重新校验</button>
+                <button class="ghost-button" data-data-operation="restore-drill" type="button">隔离恢复演练</button>
+                <button class="ghost-button" data-data-operation="cleanup-plan" type="button">预览可隔离索引</button>
+                <button id="dataQuarantineButton" class="ghost-button" data-data-operation="quarantine" type="button" disabled>隔离预览中的索引</button>
+              </div>
+              <p class="muted">隔离只移动可重建索引，暂不释放磁盘，可撤销。恢复演练写入新目录，不覆盖现用数据。</p>
+              <div class="knowledge-review-actions">
+                <label class="knowledge-reviewer-field">隔离记录 <select id="dataQuarantineSelect"><option value="">无记录</option></select></label>
+                <button class="ghost-button" data-data-operation="undo-quarantine" type="button">撤销隔离</button>
+                <button id="dataCancelButton" class="ghost-button" type="button" hidden>取消数据任务</button>
+              </div>
+              <p id="dataTaskStatus" role="status" aria-live="polite"></p>
+              <div id="dataTaskResult"></div>
+            </section>
+            <div class="knowledge-review-header">
+              <div>
+                <h3>创作能力规则复核</h3>
+                <p class="muted">只登记人工判断；批准、驳回或暂缓都不会自动改写，需“完整更新”后应用。</p>
+              </div>
+              <label class="knowledge-reviewer-field">复核人
+                <input id="knowledgeReviewer" type="text" maxlength="100" value="本地用户" autocomplete="name">
+              </label>
+            </div>
+            <div id="knowledgeRules" class="knowledge-rules">
+              <div class="empty-state">正在读取规则及样本证据...</div>
             </div>
           </div>
         </section>
@@ -447,6 +767,7 @@
       </main>
     </div>
 
-    <script src="/static/app.js?v=20260730-content-works-1"></script>
+    <script src="/static/app.js?v=20260820-creator-dedup-2"></script>
+    <script src="/static/data-management.js?v=20261007"></script>
   </body>
 </html>

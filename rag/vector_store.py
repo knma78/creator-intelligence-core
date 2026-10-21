@@ -6,10 +6,12 @@ import os
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from config import SETTINGS, Settings
+from infrastructure.artifacts import file_sha256
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import raise_if_cancelled
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,9 @@ COLLECTION_NAME = "content_research"
 def build_vector_knowledge_base(
     lexical_index_path: Path | None = None,
     settings: Settings = SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> Path:
     lexical_index_path = lexical_index_path or (settings.knowledge_base_dir / "index.json")
     payload = json.loads(lexical_index_path.read_text(encoding="utf-8"))
@@ -41,6 +46,7 @@ def build_vector_knowledge_base(
 
     batch_size = max(1, settings.sentence_transformer_batch_size)
     for start in range(0, len(documents), batch_size):
+        raise_if_cancelled(cancel_requested)
         batch = documents[start : start + batch_size]
         texts = [str(item.get("text") or "") for item in batch]
         embeddings = model.encode(
@@ -58,6 +64,13 @@ def build_vector_knowledge_base(
                     "video_id": str(item.get("video_id") or ""),
                     "title": str(item.get("title") or ""),
                     "source_path": str(item.get("source_path") or ""),
+                    "document_type": str(
+                        item.get("document_type") or "video_text"
+                    ),
+                    "abilities": json.dumps(
+                        item.get("abilities") or [],
+                        ensure_ascii=False,
+                    ),
                     "learning_subjects": json.dumps(
                         item.get("learning_subjects") or [],
                         ensure_ascii=False,
@@ -66,15 +79,23 @@ def build_vector_knowledge_base(
                 for item in batch
             ],
         )
+        if progress_callback:
+            progress_callback(
+                min(start + len(batch), len(documents)),
+                len(documents),
+            )
+    raise_if_cancelled(cancel_requested)
 
     manifest_path = persist_dir / "manifest.json"
     manifest = {
-        "version": 1,
+        "version": 2,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "collection": COLLECTION_NAME,
         "document_count": len(documents),
         "embedding_model": settings.sentence_transformer_model,
         "lexical_index_path": str(lexical_index_path.resolve()),
+        "lexical_index_sha256": file_sha256(lexical_index_path),
+        "lexical_source_fingerprint": payload.get("source_fingerprint"),
     }
     atomic_write_json(manifest_path, manifest)
     return manifest_path
@@ -84,14 +105,19 @@ def search_vector_knowledge_base(
     query: str,
     top_k: int = 5,
     settings: Settings = SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> list[dict[str, Any]]:
+    raise_if_cancelled(cancel_requested)
     manifest_path = settings.vector_knowledge_base_dir / "manifest.json"
     if not manifest_path.exists():
         return []
     chromadb, model = _load_dependencies(settings)
+    raise_if_cancelled(cancel_requested)
     client = chromadb.PersistentClient(path=str(settings.vector_knowledge_base_dir))
     collection = client.get_collection(COLLECTION_NAME)
     embedding = model.encode([query], normalize_embeddings=True, show_progress_bar=False)[0].tolist()
+    raise_if_cancelled(cancel_requested)
     result = collection.query(
         query_embeddings=[embedding],
         n_results=max(1, top_k),
@@ -103,6 +129,7 @@ def search_vector_knowledge_base(
     distances = (result.get("distances") or [[]])[0]
     rows = []
     for chunk_id, text, metadata, distance in zip(ids, texts, metadatas, distances):
+        raise_if_cancelled(cancel_requested)
         metadata = metadata or {}
         rows.append(
             {
@@ -113,6 +140,13 @@ def search_vector_knowledge_base(
                 "chunk_id": chunk_id,
                 "excerpt": str(text or "")[:240],
                 "source_path": metadata.get("source_path"),
+                "document_type": metadata.get(
+                    "document_type",
+                    "video_text",
+                ),
+                "abilities": _decode_string_list(
+                    metadata.get("abilities")
+                ),
                 "learning_subjects": _decode_learning_subjects(
                     metadata.get("learning_subjects")
                 ),
@@ -122,7 +156,70 @@ def search_vector_knowledge_base(
 
 
 def vector_backend_ready(settings: Settings = SETTINGS) -> bool:
-    return (settings.vector_knowledge_base_dir / "manifest.json").exists()
+    return vector_backend_status(settings)["ready"]
+
+
+def vector_backend_status(settings: Settings = SETTINGS) -> dict[str, Any]:
+    manifest_path = settings.vector_knowledge_base_dir / "manifest.json"
+    lexical_path = settings.knowledge_base_dir / "index.json"
+    status: dict[str, Any] = {
+        "ready": False,
+        "stale": False,
+        "manifest_path": str(manifest_path),
+        "lexical_index_path": str(lexical_path),
+        "reason": None,
+    }
+    if not manifest_path.is_file():
+        status["reason"] = "vector manifest is missing"
+        return status
+    if not lexical_path.is_file():
+        status["reason"] = "lexical index is missing"
+        return status
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        status["reason"] = "vector manifest is unreadable"
+        return status
+    expected = str(manifest.get("lexical_index_sha256") or "")
+    if not expected:
+        status.update(
+            stale=True,
+            reason="legacy vector manifest has no lexical index fingerprint",
+        )
+        return status
+    actual = file_sha256(lexical_path)
+    if actual != expected:
+        status.update(
+            stale=True,
+            reason="lexical index changed after vector index generation",
+            expected_lexical_sha256=expected,
+            actual_lexical_sha256=actual,
+        )
+        return status
+    if manifest.get("embedding_model") != settings.sentence_transformer_model:
+        status.update(
+            stale=True,
+            reason="embedding model configuration changed",
+        )
+        return status
+    status.update(
+        ready=True,
+        generated_at=manifest.get("generated_at"),
+        document_count=manifest.get("document_count", 0),
+    )
+    return status
+
+
+def _decode_string_list(value: Any) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    try:
+        payload = json.loads(str(value))
+    except (TypeError, json.JSONDecodeError):
+        return []
+    return [str(item) for item in payload] if isinstance(payload, list) else []
 
 
 def _decode_learning_subjects(value: Any) -> list[dict[str, Any]]:

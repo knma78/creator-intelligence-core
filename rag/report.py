@@ -7,10 +7,16 @@ import re
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from config import SETTINGS, Settings
 from infrastructure.atomic_io import atomic_write_json, atomic_write_text
+from infrastructure.cancellation import (
+    JobCancelledError,
+    raise_if_cancelled,
+    run_cancellable_call,
+)
+from infrastructure.progress import BatchProgressMessage
 from rag.knowledge_base import build_knowledge_base, search_knowledge_base
 
 logger = logging.getLogger(__name__)
@@ -21,24 +27,68 @@ def generate_research_report(
     settings: Settings = SETTINGS,
     top_k: int = 8,
     rebuild_kb: bool = False,
+    *,
+    progress_callback: Callable[[str, int, str], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
+    def progress(stage: str, percent: int, message: str) -> None:
+        raise_if_cancelled(cancel_requested)
+        if progress_callback:
+            progress_callback(stage, percent, message)
+
+    raise_if_cancelled(cancel_requested)
     query = query.strip()
     if not query:
         raise ValueError("query is required")
 
     index_path = settings.knowledge_base_dir / "index.json"
     if rebuild_kb or not index_path.exists():
-        build_knowledge_base(settings.output_dir, index_path, settings)
+        progress("V4知识准备", 30, "正在更新报告所需的本地知识索引。")
+        build_knowledge_base(
+            settings.output_dir,
+            index_path,
+            settings,
+            cancel_requested=cancel_requested,
+            progress_callback=lambda current, total: progress(
+                "V4知识准备",
+                min(44, 30 + int((current / max(total, 1)) * 14)),
+                BatchProgressMessage(
+                    f"正在整理报告知识文档：{current}/{total}",
+                    current=current,
+                    total=total,
+                ),
+            ),
+        )
 
-    results = search_knowledge_base(query, index_path, top_k=top_k, settings=settings)
+    progress("V4知识检索", 45, "正在检索与研究问题相关的证据。")
+    results = search_knowledge_base(
+        query,
+        index_path,
+        top_k=top_k,
+        settings=settings,
+        cancel_requested=cancel_requested,
+    )
     if not results:
         raise ValueError("知识库里没有找到相关内容，请先分析视频或UP主页并构建知识库。")
 
-    evidence = _load_evidence(results, index_path)
-    report_markdown, raw_llm_result = _generate_with_llm(query, evidence, settings)
+    progress("V4证据整理", 55, "正在整理命中的分析、字幕和结构化证据。")
+    evidence = _load_evidence(
+        results,
+        index_path,
+        cancel_requested=cancel_requested,
+    )
+    progress("V4报告生成", 65, "正在生成研究报告；停止请求会在流式输出时立即检查。")
+    report_markdown, raw_llm_result = _generate_with_llm(
+        query,
+        evidence,
+        settings,
+        cancel_requested=cancel_requested,
+    )
     if not report_markdown:
+        raise_if_cancelled(cancel_requested)
         report_markdown = _generate_local_report(query, evidence)
 
+    progress("V4报告写入", 92, "正在原子写入 Markdown 和 JSON 报告。")
     output_dir = _report_output_dir(settings, query)
     output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = output_dir / "report.md"
@@ -60,12 +110,18 @@ def generate_research_report(
     return {**payload, "markdown_path": markdown_path, "json_path": json_path}
 
 
-def _load_evidence(results: list[dict[str, Any]], index_path: Path) -> list[dict[str, Any]]:
+def _load_evidence(
+    results: list[dict[str, Any]],
+    index_path: Path,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
+) -> list[dict[str, Any]]:
     index_payload = json.loads(index_path.read_text(encoding="utf-8"))
     documents = {doc.get("chunk_id"): doc for doc in index_payload.get("documents", [])}
     evidence = []
     seen: set[str] = set()
     for result in results:
+        raise_if_cancelled(cancel_requested)
         chunk_id = result.get("chunk_id")
         doc = documents.get(chunk_id, {})
         source_path = Path(str(result.get("source_path") or doc.get("source_path") or ""))
@@ -96,7 +152,10 @@ def _generate_with_llm(
     query: str,
     evidence: list[dict[str, Any]],
     settings: Settings,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> tuple[str | None, dict[str, Any] | None]:
+    raise_if_cancelled(cancel_requested)
     if not settings.llm_api_key:
         return None, None
     try:
@@ -113,19 +172,42 @@ def _generate_with_llm(
     client = OpenAI(**client_kwargs)
     prompt = _build_llm_prompt(query, evidence, settings.llm_max_chars)
     try:
-        response = client.chat.completions.create(
-            model=settings.llm_model,
-            temperature=0.2,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是内容研究分析师。基于给定知识库证据写中文Markdown报告，不要编造证据。",
-                },
-                {"role": "user", "content": prompt},
-            ],
+        response = run_cancellable_call(
+            lambda: client.chat.completions.create(
+                model=settings.llm_model,
+                temperature=0.2,
+                stream=True,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "你是内容研究分析师。基于给定知识库证据写中文Markdown报告，不要编造证据。",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            ),
+            cancel_requested,
+            on_cancel=getattr(client, "close", None),
         )
-        markdown = response.choices[0].message.content or ""
+        chunks: list[str] = []
+        try:
+            for chunk in response:
+                raise_if_cancelled(cancel_requested)
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                delta = getattr(choices[0], "delta", None)
+                content = getattr(delta, "content", None)
+                if content:
+                    chunks.append(str(content))
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
+        raise_if_cancelled(cancel_requested)
+        markdown = "".join(chunks)
         return markdown.strip(), {"model": settings.llm_model, "used": True}
+    except JobCancelledError:
+        raise
     except Exception as exc:  # pragma: no cover - provider/network dependent
         logger.warning("V4 LLM report generation failed, fallback to local report: %s", exc)
         return None, {"model": settings.llm_model, "used": False, "error": str(exc)}

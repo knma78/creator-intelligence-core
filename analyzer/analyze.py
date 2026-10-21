@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Callable
 
 from config import SETTINGS, Settings
 from models import AnalysisResult, Transcript, Video
@@ -17,9 +18,17 @@ def run_analysis(
     video: Video,
     transcript: Transcript,
     settings: Settings = SETTINGS,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> AnalysisResult:
     baseline = _local_analysis(video, transcript)
-    llm_result = analyze_with_llm(video, transcript, baseline, settings)
+    llm_result = analyze_with_llm(
+        video,
+        transcript,
+        baseline,
+        settings,
+        cancel_requested=cancel_requested,
+    )
     return llm_result or baseline
 
 

@@ -16,6 +16,7 @@ from downloader.douyin_adapter import (
 )
 from downloader.yt_dlp_common import apply_yt_dlp_options
 from infrastructure.atomic_io import atomic_write_json
+from infrastructure.cancellation import raise_if_cancelled
 from models import Video
 
 
@@ -183,6 +184,7 @@ class SocialVideoDownloader:
                 raise RuntimeError(f"{self.platform.display_name}返回了无效的视频信息。")
             return info
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(self._humanize_error(exc)) from exc
 
     def _download_subtitle(
@@ -209,6 +211,7 @@ class SocialVideoDownloader:
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.download([url])
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(self._humanize_error(exc)) from exc
 
     def _download_video(self, url: str, video_dir: Path) -> None:
@@ -226,6 +229,7 @@ class SocialVideoDownloader:
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.download([url])
         except Exception as exc:
+            raise_if_cancelled(None)
             raise RuntimeError(self._humanize_error(exc)) from exc
 
     def _base_options(self, quiet: bool) -> dict[str, Any]:

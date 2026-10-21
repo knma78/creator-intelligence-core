@@ -76,6 +76,7 @@ def build_video_profile(
     creator_name: str = "",
     source_analysis_ref: str = "",
     save: bool = False,
+    transcript_tail: str = "",
     settings: Settings = SETTINGS,
     database_path: Path | None = None,
 ) -> dict[str, Any]:
@@ -92,6 +93,7 @@ def build_video_profile(
         creator_name=creator_name,
         source_analysis_ref=source_analysis_ref,
         save=save,
+        transcript_tail=transcript_tail,
     )
 
 

@@ -142,7 +142,14 @@ class GapAnalysisService:
             ref_count = len(evidence.related_videos)
             creator_count = len(evidence.related_creators)
             template_count = len(evidence.related_templates)
-            coverage = self._coverage(ref_count, creator_count, template_count, target)
+            raw_coverage = self._coverage(
+                ref_count,
+                creator_count,
+                template_count,
+                target,
+            )
+            quality_factor, evidence_basis = self._evidence_quality(evidence)
+            coverage = raw_coverage * quality_factor
             score = int(round(coverage * 100))
             gap = self._gap(score, coverage, ref_count, target, definition.weight)
             state = self._state(score, coverage, ref_count, target)
@@ -153,6 +160,9 @@ class GapAnalysisService:
                     "ability_name": definition.display_name,
                     "score": score,
                     "coverage": round(coverage, 4),
+                    "raw_coverage": round(raw_coverage, 4),
+                    "evidence_quality_factor": quality_factor,
+                    "evidence_basis": evidence_basis,
                     "reference_count": ref_count,
                     "related_template_count": template_count,
                     "related_creator_count": creator_count,
@@ -190,6 +200,91 @@ class GapAnalysisService:
         creator_ratio = min(creator_count / max(1, int(target["target_creator_count"])), 1.0)
         template_ratio = min(template_count / max(1, int(target["target_template_count"])), 1.0)
         return min(1.0, ref_ratio * 0.6 + creator_ratio * 0.25 + template_ratio * 0.15)
+
+    def _evidence_quality(
+        self,
+        evidence: AbilityEvidence,
+    ) -> tuple[float, str]:
+        sources = set(evidence.evidence_sources)
+        if sources and all(source.startswith("duckdb:") for source in sources):
+            metric_quality = self._structured_metric_quality(
+                evidence.capability_documents
+            )
+            factor = round(0.72 + metric_quality * 0.23, 3)
+            return (
+                factor,
+                "来自 DuckDB 的结构化代理指标；已按静音、动态范围、"
+                "场景采样和视觉置信度折算证据质量。",
+            )
+        if sources and all(
+            source == "ability_profile:design_proxy"
+            for source in sources
+        ):
+            return (
+                0.72,
+                "仅有结构化留存设计代理证据，未接入真实留存或完播数据。",
+            )
+        if sources and all(
+            source == "ability_profile:semantic_signal"
+            for source in sources
+        ):
+            return (
+                0.85,
+                "来自结构化分析的语义功能信号，尚缺人工复核或效果数据。",
+            )
+        return 1.0, "包含直接结构化证据或多来源交叉证据。"
+
+    @staticmethod
+    def _structured_metric_quality(
+        documents: list[dict[str, Any]],
+    ) -> float:
+        scores: list[float] = []
+        for document in documents:
+            category = str(document.get("category") or "")
+            metrics = document.get("metrics") or {}
+            if category == "structured_audio_rhythm":
+                silence = float(metrics.get("silence_ratio") or 0)
+                dynamic_range = float(metrics.get("dynamic_range_db") or 0)
+                onset_rate = float(metrics.get("onsets_per_minute") or 0)
+                score = (
+                    max(0.0, 1.0 - min(1.0, silence / 0.65)) * 0.45
+                    + min(1.0, dynamic_range / 18.0) * 0.3
+                    + min(1.0, onset_rate / 80.0) * 0.25
+                )
+                scores.append(score)
+            elif category == "structured_scene_rhythm":
+                sample_count = float(metrics.get("sample_count") or 0)
+                scene_count = float(metrics.get("scene_count") or 0)
+                average = float(
+                    metrics.get("average_scene_duration") or 0
+                )
+                duration_signal = (
+                    1.0
+                    if 1.0 <= average <= 12.0
+                    else max(0.0, 1.0 - abs(average - 6.0) / 30.0)
+                )
+                scores.append(
+                    min(1.0, sample_count / 60.0) * 0.5
+                    + min(1.0, scene_count / 12.0) * 0.25
+                    + duration_signal * 0.25
+                )
+            elif category == "structured_visual_semantics":
+                labels = metrics.get("top_labels") or []
+                top_score = max(
+                    (
+                        float(item.get("score") or 0)
+                        for item in labels
+                        if isinstance(item, dict)
+                    ),
+                    default=0.0,
+                )
+                scores.append(
+                    min(1.0, len(labels) / 5.0) * 0.45
+                    + min(1.0, top_score) * 0.55
+                )
+        if not scores:
+            return 0.5
+        return max(0.0, min(1.0, sum(scores) / len(scores)))
 
     def _gap(
         self,
