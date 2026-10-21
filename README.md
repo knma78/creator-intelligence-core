@@ -1,8 +1,47 @@
 # Creator Intelligence Core
 
-> Local-first video research and creative-planning tool. It helps organize public-video research, creator observations, and script/storyboard drafts; it is not a one-click finished-video generator, and platform access or rendering depends on local setup.
+> Local-first video research and creative-planning tool. Use Python 3.12/3.13, install `requirements/core.txt`, then run `python web_ui.py`; add acquisition/research extras as needed. LLM credentials and NVIDIA GPU are optional. Platform login and rendering depend on local setup.
 
 本地运行的内容研究流水线。支持输入 B站、YouTube、抖音、小红书公开视频链接、本地视频文件、B站 UP 主页、YouTube 频道主页、抖音创作者主页，或自然语言研究问题，自动完成字幕获取、Whisper 转录、内容分析、批量画像、知识库检索和 V4 研究报告。
+
+## 快速开始
+
+建议使用 Python 3.12 或 3.13（本机测试环境为 Python 3.13.9）。Windows PowerShell 示例：
+
+```powershell
+git clone https://github.com/knma78/creator-intelligence-core.git
+cd creator-intelligence-core
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements/core.txt
+pip install -r requirements/acquisition.txt
+python web_ui.py
+```
+
+然后打开 `http://127.0.0.1:7860`。如需 Whisper 转录和视觉/语义分析，先安装 `requirements/research-ml.txt`；随后也可用命令行分析单条视频：
+
+```powershell
+python main.py "https://www.bilibili.com/video/BVxxxx"
+```
+
+按需增加能力：
+
+```powershell
+# Whisper 转录、OCR、语义检索、OpenCLIP 等研究能力；首次使用模型时需要下载模型文件
+pip install -r requirements/research-ml.txt
+
+# Windows NVIDIA GPU 加速（可选；没有 NVIDIA GPU 时不需要安装）
+pip install -r requirements/gpu-windows.txt
+```
+
+运行环境说明：
+
+- 基础 Web UI、报告和创作规划使用 `requirements/core.txt`；平台视频下载/登录使用 `requirements/acquisition.txt`；转录和视觉/语义分析再安装 `requirements/research-ml.txt`。
+- FFmpeg 优先从系统 PATH 或 `imageio-ffmpeg` 获取；需要时可在 `.env` 设置 `FFMPEG_PATH`。
+- LLM API 不是启动必需项。不配置时使用本地启发式分析；需要模型增强时，将 `.env.example` 复制为 `.env` 并填写 `LLM_API_KEY`，必要时再设置 `LLM_BASE_URL` 和 `LLM_MODEL`。
+- B站、YouTube、抖音需要的平台授权可在 Web UI 中登录；会话保存在本机。不要把 `.env`、Cookie 或缓存提交到 Git。
+- GPU、OpenCLIP、Whisper、Blender、CapCut 等能力都是按需配置；它们不是启动基础界面的前提。当前项目主要提供研究、分析和制作准备，能否访问平台或渲染取决于本机环境与平台限制。
 
 ## V1.0 流程
 
