@@ -1,6 +1,6 @@
 # Creator Intelligence Core
 
-> Content Research Pipeline and local Creator Intelligence System
+> Local-first video research and creative-planning tool. It helps organize public-video research, creator observations, and script/storyboard drafts; it is not a one-click finished-video generator, and platform access or rendering depends on local setup.
 
 本地运行的内容研究流水线。支持输入 B站、YouTube、抖音、小红书公开视频链接、本地视频文件、B站 UP 主页、YouTube 频道主页、抖音创作者主页，或自然语言研究问题，自动完成字幕获取、Whisper 转录、内容分析、批量画像、知识库检索和 V4 研究报告。
 
